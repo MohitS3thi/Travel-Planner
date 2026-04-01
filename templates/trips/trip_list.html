@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Your Trips</h1>
+    {% if trips %}
+        <div class="grid">
+            {% for trip in trips %}
+                <div class="card">
+                    <h3>{{ trip.destination }}</h3>
+                    <p class="muted">{{ trip.start_date }} to {{ trip.end_date }}</p>
+                    <p><strong>Budget:</strong> {{ trip.budget }}</p>
+                    <p><strong>Interests:</strong> {{ trip.interests }}</p>
+                    <a class="button" href="{% url 'trip_detail' trip.id %}">Open Plan</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No trips yet.</p>
+        <a class="button" href="{% url 'trip_create' %}">Create your first trip</a>
+    {% endif %}
+</div>
+{% endblock %}

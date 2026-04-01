@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Planner</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&display=swap">
+    <style>
+        :root {
+            --bg-1: #f3f7f1;
+            --bg-2: #e2efe7;
+            --surface: #ffffff;
+            --text: #1f2933;
+            --accent: #0b6e4f;
+            --accent-2: #f4a259;
+            --border: #d8e2dc;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Source Sans 3', sans-serif;
+            color: var(--text);
+            background: linear-gradient(140deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .container {
+            width: min(960px, 92%);
+            margin: 2rem auto;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.2rem;
+            box-shadow: 0 8px 22px rgba(17, 24, 39, 0.05);
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            margin-top: 0;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .button, button {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 0.6rem 0.9rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .button.secondary {
+            background: var(--accent-2);
+            color: #1f2933;
+        }
+
+        form p {
+            margin-bottom: 0.8rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.55rem;
+            border: 1px solid #c9d5cc;
+            border-radius: 8px;
+            font: inherit;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        ul {
+            padding-left: 1.1rem;
+        }
+
+        .muted {
+            color: #52606d;
+            font-size: 0.95rem;
+        }
+
+        .done {
+            text-decoration: line-through;
+            color: #6b7280;
+        }
+
+        .errorlist {
+            color: #b91c1c;
+            margin: 0.3rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <div>
+                <a href="{% url 'trip_list' %}"><strong>Travel Planner</strong></a>
+            </div>
+            <div>
+                {% if user.is_authenticated %}
+                    <span class="muted">Signed in as {{ user.username }}</span>
+                    <a class="button" href="{% url 'trip_create' %}">New Trip</a>
+                    <form action="{% url 'logout' %}" method="post" style="display:inline; margin-left: .4rem;">
+                        {% csrf_token %}
+                        <button type="submit" class="button secondary">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <a href="{% url 'signup' %}">Sign up</a>
+                {% endif %}
+            </div>
+        </nav>
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

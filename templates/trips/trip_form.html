@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <h1>Create Trip</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save Trip</button>
+    </form>
+</div>
+{% endblock %}
