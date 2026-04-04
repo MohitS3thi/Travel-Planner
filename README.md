@@ -92,6 +92,22 @@ Create a superuser:
 python manage.py createsuperuser
 ```
 
+Or use the project helper command:
+
+```powershell
+python manage.py create_default_superuser
+```
+
+Useful options:
+
+```powershell
+# Fully non-interactive
+python manage.py create_default_superuser --username admin --email admin@example.com --password "ChangeMe123!" --no-input
+
+# Update existing admin credentials if it already exists
+python manage.py create_default_superuser --username admin --email admin@example.com --password "ChangeMe123!" --no-input --update-existing
+```
+
 Admin site:
 - http://127.0.0.1:8000/admin/
 
