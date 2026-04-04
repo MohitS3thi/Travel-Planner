@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChecklistItem, ItineraryItem, Trip
+from .models import ChecklistItem, ItineraryItem, Place, Trip
 
 
 @admin.register(Trip)
@@ -18,3 +18,10 @@ class ItineraryItemAdmin(admin.ModelAdmin):
 class ChecklistItemAdmin(admin.ModelAdmin):
 	list_display = ('item_name', 'trip', 'category', 'is_done')
 	list_filter = ('category', 'is_done')
+
+
+@admin.register(Place)
+class PlaceAdmin(admin.ModelAdmin):
+	list_display = ('name', 'trip', 'place_type', 'latitude', 'longitude', 'created_at')
+	list_filter = ('place_type',)
+	search_fields = ('name', 'address', 'trip__destination')

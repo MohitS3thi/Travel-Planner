@@ -2,7 +2,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import ChecklistItemForm, ItineraryItemForm, SignUpForm, TripForm
+from .forms import ChecklistItemForm, ItineraryItemForm, PlaceForm, SignUpForm, TripForm
 from .models import ChecklistItem, Trip
 from .utils import generate_weather_aware_suggestions
 
@@ -41,6 +41,7 @@ def trip_detail(request, trip_id):
 	trip = get_object_or_404(Trip, id=trip_id, owner=request.user)
 	itinerary_form = ItineraryItemForm(request.POST or None, prefix='itinerary')
 	checklist_form = ChecklistItemForm(request.POST or None, prefix='checklist')
+	place_form = PlaceForm(request.POST or None, prefix='place')
 
 	if request.method == 'POST':
 		if 'add_itinerary' in request.POST and itinerary_form.is_valid():
@@ -55,7 +56,34 @@ def trip_detail(request, trip_id):
 			checklist_item.save()
 			return redirect('trip_detail', trip_id=trip.id)
 
+		if 'add_place' in request.POST and place_form.is_valid():
+			place = place_form.save(commit=False)
+			place.trip = trip
+			place.save()
+			return redirect('trip_detail', trip_id=trip.id)
+
 	suggestions = generate_weather_aware_suggestions(trip)
+	map_points = []
+	if trip.destination_lat is not None and trip.destination_lng is not None:
+		map_points.append({
+			'key': 'destination',
+			'name': trip.destination,
+			'type': 'destination',
+			'lat': float(trip.destination_lat),
+			'lng': float(trip.destination_lng),
+			'address': trip.destination,
+		})
+
+	for place in trip.places.all():
+		map_points.append({
+			'key': f'place-{place.id}',
+			'name': place.name,
+			'type': place.place_type,
+			'lat': float(place.latitude),
+			'lng': float(place.longitude),
+			'address': place.address,
+			'notes': place.notes,
+		})
 	return render(
 		request,
 		'trips/trip_detail.html',
@@ -63,7 +91,9 @@ def trip_detail(request, trip_id):
 			'trip': trip,
 			'itinerary_form': itinerary_form,
 			'checklist_form': checklist_form,
+			'place_form': place_form,
 			'suggestions': suggestions,
+			'map_points': map_points,
 		},
 	)
 

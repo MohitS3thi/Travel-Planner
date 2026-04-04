@@ -1,11 +1,28 @@
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <h1>{{ trip.destination }}</h1>
+    {% if trip.destination_lat and trip.destination_lng %}
+        <p class="tag">Mapped destination: {{ trip.destination_lat }}, {{ trip.destination_lng }}</p>
+    {% else %}
+        <p class="muted">No coordinates saved yet. Add them from the trip form to unlock the map.</p>
+    {% endif %}
     <p><strong>Dates:</strong> {{ trip.start_date }} to {{ trip.end_date }}</p>
     <p><strong>Budget:</strong> {{ trip.budget }}</p>
     <p><strong>Interests:</strong> {{ trip.interests }}</p>
+</div>
+
+<div class="card" style="margin-top: 1rem;">
+    <h2>Map</h2>
+    <div class="map-shell">
+        <div id="trip-map" class="map-canvas"></div>
+    </div>
+    <p class="muted" id="map-status" style="margin-bottom: 0;">Showing destination and saved places on an OpenStreetMap layer.</p>
 </div>
 
 <div class="grid" style="margin-top: 1rem;">
@@ -43,6 +60,98 @@
     </div>
 </div>
 
+<div class="grid" style="margin-top: 1rem;">
+    <div class="card">
+        <h2>Saved Places</h2>
+        {% if trip.places.all %}
+            <ul>
+                {% for place in trip.places.all %}
+                    <li>
+                        <strong>{{ place.name }}</strong> <span class="tag">{{ place.get_place_type_display }}</span>
+                        {% if place.address %}<div class="muted">{{ place.address }}</div>{% endif %}
+                        <div class="muted">{{ place.latitude }}, {{ place.longitude }}</div>
+                        {% if place.notes %}<div>{{ place.notes }}</div>{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No places saved yet.</p>
+        {% endif %}
+
+        <h3>Save place or attraction</h3>
+        <form method="post">
+            {% csrf_token %}
+            <div class="stack">
+                <div class="field-grid">
+                    <div>
+                        <label for="id_place-name"><strong>Name</strong></label>
+                        {{ place_form.name }}
+                    </div>
+                    <div>
+                        <label for="id_place-place_type"><strong>Type</strong></label>
+                        {{ place_form.place_type }}
+                    </div>
+                </div>
+                <div>
+                    <label for="id_place-address"><strong>Address</strong></label>
+                    {{ place_form.address }}
+                </div>
+                <div class="field-grid">
+                    <div>
+                        <label for="id_place-latitude"><strong>Latitude</strong></label>
+                        {{ place_form.latitude }}
+                    </div>
+                    <div>
+                        <label for="id_place-longitude"><strong>Longitude</strong></label>
+                        {{ place_form.longitude }}
+                    </div>
+                </div>
+                <div>
+                    <label for="id_place-notes"><strong>Notes</strong></label>
+                    {{ place_form.notes }}
+                </div>
+            </div>
+            <button type="submit" name="add_place">Save Place</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Route Planner</h2>
+        <p class="muted">Choose any two mapped points to draw a simple route line on the map.</p>
+        <div class="field-grid">
+            <div>
+                <label for="route-start"><strong>From</strong></label>
+                <select id="route-start">
+                    <option value="">Select a point</option>
+                    {% if trip.destination_lat and trip.destination_lng %}
+                        <option value="destination">Trip destination</option>
+                    {% endif %}
+                    {% for place in trip.places.all %}
+                        <option value="place-{{ place.id }}">{{ place.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="route-end"><strong>To</strong></label>
+                <select id="route-end">
+                    <option value="">Select a point</option>
+                    {% if trip.destination_lat and trip.destination_lng %}
+                        <option value="destination">Trip destination</option>
+                    {% endif %}
+                    {% for place in trip.places.all %}
+                        <option value="place-{{ place.id }}">{{ place.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="toolbar" style="margin-top: 0.75rem;">
+            <button type="button" id="draw-route-button">Draw Route</button>
+            <button type="button" id="clear-route-button" class="button secondary">Clear Route</button>
+        </div>
+        <p class="muted" id="route-status" style="margin-bottom: 0;"></p>
+    </div>
+</div>
+
 <div class="card" style="margin-top: 1rem;">
     <h2>Planning Checklist</h2>
     <ul>
@@ -65,4 +174,88 @@
         <button type="submit" name="add_checklist">Add Checklist Item</button>
     </form>
 </div>
+
+{{ map_points|json_script:"trip-map-points" }}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    (function () {
+        const mapElement = document.getElementById('trip-map');
+        const routeStart = document.getElementById('route-start');
+        const routeEnd = document.getElementById('route-end');
+        const drawRouteButton = document.getElementById('draw-route-button');
+        const clearRouteButton = document.getElementById('clear-route-button');
+        const routeStatus = document.getElementById('route-status');
+        const mapStatus = document.getElementById('map-status');
+
+        if (!mapElement) {
+            return;
+        }
+
+        const points = JSON.parse(document.getElementById('trip-map-points').textContent || '[]');
+        const lookup = new Map(points.map((point) => [point.key, point]));
+        const fallbackCenter = points.length ? [points[0].lat, points[0].lng] : [20, 0];
+        const map = L.map('trip-map', { scrollWheelZoom: false }).setView(fallbackCenter, points.length ? 11 : 2);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+
+        const bounds = [];
+        points.forEach((point) => {
+            const marker = L.marker([point.lat, point.lng]).addTo(map);
+            marker.bindPopup(`<strong>${point.name}</strong><br>${point.address || ''}`.trim());
+            bounds.push([point.lat, point.lng]);
+        });
+
+        if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [30, 30] });
+        } else if (bounds.length === 1) {
+            map.setView(bounds[0], 12);
+        } else {
+            mapStatus.textContent = 'Add destination coordinates or saved places to show markers on the map.';
+        }
+
+        let routeLayer = null;
+
+        function clearRoute() {
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+                routeLayer = null;
+            }
+        }
+
+        drawRouteButton?.addEventListener('click', () => {
+            const startPoint = lookup.get(routeStart.value);
+            const endPoint = lookup.get(routeEnd.value);
+
+            if (!startPoint || !endPoint) {
+                routeStatus.textContent = 'Pick two saved points with coordinates first.';
+                return;
+            }
+
+            clearRoute();
+            routeLayer = L.polyline([
+                [startPoint.lat, startPoint.lng],
+                [endPoint.lat, endPoint.lng],
+            ], {
+                color: '#0b6e4f',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '8 8',
+            }).addTo(map);
+
+            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+            routeStatus.textContent = `Route drawn from ${startPoint.name} to ${endPoint.name}.`;
+        });
+
+        clearRouteButton?.addEventListener('click', () => {
+            clearRoute();
+            routeStatus.textContent = 'Route cleared.';
+        });
+    })();
+</script>
 {% endblock %}

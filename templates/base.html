@@ -6,6 +6,7 @@
     <title>Travel Planner</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&display=swap">
+    {% block extra_head %}{% endblock %}
     <style>
         :root {
             --bg-1: #f3f7f1;
@@ -15,6 +16,7 @@
             --accent: #0b6e4f;
             --accent-2: #f4a259;
             --border: #d8e2dc;
+            --map-border: #c7d5cb;
         }
 
         * { box-sizing: border-box; }
@@ -113,6 +115,51 @@
             color: #b91c1c;
             margin: 0.3rem 0;
         }
+
+        .toolbar {
+            display: flex;
+            gap: 0.75rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .toolbar > * {
+            flex: 1 1 220px;
+        }
+
+        .field-grid {
+            display: grid;
+            gap: 0.8rem;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+
+        .map-shell {
+            border: 1px solid var(--map-border);
+            border-radius: 14px;
+            overflow: hidden;
+            background: linear-gradient(160deg, #f8faf7, #eef5ef);
+        }
+
+        .map-canvas {
+            min-height: 360px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            padding: 0.25rem 0.7rem;
+            background: #edf6f1;
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .stack {
+            display: grid;
+            gap: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -138,5 +185,6 @@
 
         {% block content %}{% endblock %}
     </div>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

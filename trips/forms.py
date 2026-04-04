@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import ChecklistItem, ItineraryItem, Trip
+from .models import ChecklistItem, ItineraryItem, Place, Trip
 
 
 class SignUpForm(UserCreationForm):
@@ -16,12 +16,21 @@ class SignUpForm(UserCreationForm):
 class TripForm(forms.ModelForm):
     class Meta:
         model = Trip
-        fields = ('destination', 'start_date', 'end_date', 'budget', 'interests')
+        fields = ('destination', 'destination_lat', 'destination_lng', 'start_date', 'end_date', 'budget', 'interests')
         widgets = {
+            'destination_lat': forms.NumberInput(attrs={'step': 'any'}),
+            'destination_lng': forms.NumberInput(attrs={'step': 'any'}),
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),
             'interests': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['destination_lat'].required = False
+        self.fields['destination_lng'].required = False
+        self.fields['destination_lat'].help_text = 'Optional. Populated automatically by destination search.'
+        self.fields['destination_lng'].help_text = 'Optional. Populated automatically by destination search.'
 
     def clean(self):
         cleaned_data = super().clean()
@@ -46,3 +55,14 @@ class ChecklistItemForm(forms.ModelForm):
     class Meta:
         model = ChecklistItem
         fields = ('category', 'item_name')
+
+
+class PlaceForm(forms.ModelForm):
+    class Meta:
+        model = Place
+        fields = ('name', 'place_type', 'address', 'latitude', 'longitude', 'notes')
+        widgets = {
+            'latitude': forms.NumberInput(attrs={'step': 'any'}),
+            'longitude': forms.NumberInput(attrs={'step': 'any'}),
+            'notes': forms.Textarea(attrs={'rows': 2}),
+        }

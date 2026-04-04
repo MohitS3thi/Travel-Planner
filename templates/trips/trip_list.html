@@ -8,6 +8,9 @@
             {% for trip in trips %}
                 <div class="card">
                     <h3>{{ trip.destination }}</h3>
+                    {% if trip.destination_lat and trip.destination_lng %}
+                        <p class="tag">Mapped: {{ trip.destination_lat }}, {{ trip.destination_lng }}</p>
+                    {% endif %}
                     <p class="muted">{{ trip.start_date }} to {{ trip.end_date }}</p>
                     <p><strong>Budget:</strong> {{ trip.budget }}</p>
                     <p><strong>Interests:</strong> {{ trip.interests }}</p>

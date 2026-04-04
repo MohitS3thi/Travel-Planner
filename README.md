@@ -4,6 +4,10 @@ A basic travel-planner web app built with Django where users can:
 - Sign up, log in, and log out
 - Create trips with destination, dates, budget, and interests
 - View trip details
+- Search destinations and save latitude/longitude for map use
+- View an embedded map with destination and saved places markers
+- Save attractions, restaurants, hotels, and other places for a trip
+- Draw a simple route line between selected saved points
 - Add itinerary items manually
 - Add and track planning checklist items (hotel, train/transport tickets, visa/documents, packing, other)
 - Get weather-aware planning suggestions based on season and interests
@@ -75,6 +79,11 @@ Open in browser:
 - Create trip: `/trips/new/`
 - Trip detail: `/trips/<trip_id>/`
 - Toggle checklist item done: `/checklist/<item_id>/toggle/`
+
+## Map Support
+- Trip creation includes a destination search helper that can populate latitude and longitude from OpenStreetMap search results.
+- Trip detail pages show a Leaflet map with the destination marker and any saved places.
+- Saved places can be added directly from the trip page and used to draw a simple route line.
 
 ## Admin
 Create a superuser:
