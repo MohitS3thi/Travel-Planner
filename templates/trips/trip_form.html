@@ -1,8 +1,17 @@
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width: 680px; margin: 0 auto;">
-    <h1>Create Trip</h1>
+<div class="hero-banner" style="max-width: 860px; margin: 0 auto 1rem;">
+    <h1 style="margin-bottom: 0.2rem;">Plan a New Trip</h1>
+    <p class="muted">Search a destination, pick points directly on the map, and start your itinerary in minutes.</p>
+</div>
+
+<div class="card" style="max-width: 760px; margin: 0 auto; padding: 1.35rem;">
+    <h2>Create Trip</h2>
     <form method="post">
         {% csrf_token %}
         <div class="stack">
@@ -11,6 +20,10 @@
                 <div class="toolbar" style="margin-top: 0.35rem;">
                     <div style="flex: 2 1 280px;">
                         {{ form.destination }}
+                        <div id="destination-suggestions" class="card" style="padding: 0.45rem; margin-top: 0.4rem; display: none;">
+                            <div class="muted" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Recommended places</div>
+                            <ul id="destination-suggestions-list" style="margin: 0; padding-left: 0; list-style: none;"></ul>
+                        </div>
                     </div>
                     <button type="button" id="destination-search-button" class="button secondary">Find coordinates</button>
                 </div>
@@ -53,9 +66,17 @@
         {% endfor %}
         <button type="submit">Save Trip</button>
     </form>
+    <div class="map-shell" style="margin-top: 0.9rem;">
+        <div id="destination-picker-map" class="map-canvas" style="min-height: 300px;"></div>
+    </div>
+    <p class="muted" style="margin-top: 0.55rem; margin-bottom: 0;">Click on the map to set destination coordinates quickly.</p>
     <p class="muted" id="destination-search-status" style="margin-top: 0.75rem;"></p>
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
     (function () {
         const searchButton = document.getElementById('destination-search-button');
@@ -63,9 +84,148 @@
         const latitudeField = document.getElementById('id_destination_lat');
         const longitudeField = document.getElementById('id_destination_lng');
         const status = document.getElementById('destination-search-status');
+        const mapElement = document.getElementById('destination-picker-map');
+        const suggestionsPanel = document.getElementById('destination-suggestions');
+        const suggestionsList = document.getElementById('destination-suggestions-list');
 
-        if (!searchButton || !destinationField || !latitudeField || !longitudeField || !status) {
+        if (!searchButton || !destinationField || !latitudeField || !longitudeField || !status || !suggestionsPanel || !suggestionsList) {
             return;
+        }
+
+        let map = null;
+        let mapMarker = null;
+        let searchDebounceTimer = null;
+        let lastRequestedQuery = '';
+        let suggestionResults = [];
+
+        function hideSuggestions() {
+            suggestionsPanel.style.display = 'none';
+            suggestionsList.innerHTML = '';
+        }
+
+        function applyDestinationSelection(selection) {
+            destinationField.value = selection.display_name;
+            latitudeField.value = Number(selection.lat).toFixed(6);
+            longitudeField.value = Number(selection.lon).toFixed(6);
+
+            if (map) {
+                const selected = [Number(selection.lat), Number(selection.lon)];
+                if (mapMarker) {
+                    mapMarker.setLatLng(selected);
+                } else {
+                    mapMarker = L.marker(selected).addTo(map);
+                }
+                map.setView(selected, 11);
+            }
+        }
+
+        async function fetchSuggestions(query) {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(query)}`, {
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+            return response.json();
+        }
+
+        function renderSuggestions(results) {
+            suggestionsList.innerHTML = '';
+
+            if (!results.length) {
+                hideSuggestions();
+                return;
+            }
+
+            results.forEach((result) => {
+                const item = document.createElement('li');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = result.display_name;
+                button.className = 'button secondary';
+                button.style.width = '100%';
+                button.style.textAlign = 'left';
+                button.style.marginBottom = '0.35rem';
+                button.addEventListener('click', () => {
+                    applyDestinationSelection(result);
+                    status.textContent = 'Destination selected from recommendations.';
+                    hideSuggestions();
+                });
+                item.appendChild(button);
+                suggestionsList.appendChild(item);
+            });
+
+            suggestionsPanel.style.display = 'block';
+        }
+
+        destinationField.addEventListener('input', () => {
+            const query = destinationField.value.trim();
+            lastRequestedQuery = query;
+
+            if (searchDebounceTimer) {
+                clearTimeout(searchDebounceTimer);
+            }
+
+            if (query.length < 2) {
+                hideSuggestions();
+                return;
+            }
+
+            searchDebounceTimer = setTimeout(async () => {
+                try {
+                    const results = await fetchSuggestions(query);
+                    if (lastRequestedQuery !== query) {
+                        return;
+                    }
+                    suggestionResults = results;
+                    renderSuggestions(results);
+                } catch (error) {
+                    hideSuggestions();
+                }
+            }, 300);
+        });
+
+        destinationField.addEventListener('blur', () => {
+            setTimeout(() => {
+                hideSuggestions();
+            }, 120);
+        });
+
+        destinationField.addEventListener('focus', () => {
+            if (suggestionResults.length) {
+                renderSuggestions(suggestionResults);
+            }
+        });
+
+        if (mapElement && typeof L !== 'undefined') {
+            const initialLat = Number(latitudeField.value);
+            const initialLng = Number(longitudeField.value);
+            const hasInitialCoordinates = !Number.isNaN(initialLat) && !Number.isNaN(initialLng);
+            const initialCenter = hasInitialCoordinates ? [initialLat, initialLng] : [20, 0];
+            const initialZoom = hasInitialCoordinates ? 10 : 2;
+
+            map = L.map('destination-picker-map', { scrollWheelZoom: false }).setView(initialCenter, initialZoom);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors',
+            }).addTo(map);
+
+            if (hasInitialCoordinates) {
+                mapMarker = L.marker(initialCenter).addTo(map);
+            }
+
+            map.on('click', (event) => {
+                const { lat, lng } = event.latlng;
+                latitudeField.value = Number(lat).toFixed(6);
+                longitudeField.value = Number(lng).toFixed(6);
+
+                if (mapMarker) {
+                    mapMarker.setLatLng(event.latlng);
+                } else {
+                    mapMarker = L.marker(event.latlng).addTo(map);
+                }
+
+                status.textContent = 'Coordinates selected from map.';
+            });
         }
 
         searchButton.addEventListener('click', async () => {
@@ -80,13 +240,7 @@
             searchButton.disabled = true;
 
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(query)}`, {
-                    headers: {
-                        'Accept': 'application/json',
-                    },
-                });
-
-                const results = await response.json();
+                const results = suggestionResults.length ? suggestionResults : await fetchSuggestions(query);
 
                 if (!results.length) {
                     status.textContent = 'No matches found. Try a more specific destination name.';
@@ -94,9 +248,9 @@
                 }
 
                 const bestMatch = results[0];
-                destinationField.value = bestMatch.display_name;
-                latitudeField.value = Number(bestMatch.lat).toFixed(6);
-                longitudeField.value = Number(bestMatch.lon).toFixed(6);
+                applyDestinationSelection(bestMatch);
+                hideSuggestions();
+
                 status.textContent = 'Coordinates loaded from OpenStreetMap search.';
             } catch (error) {
                 status.textContent = 'Destination search failed. You can enter coordinates manually.';

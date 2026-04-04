@@ -22,7 +22,22 @@ def signup_view(request):
 @login_required
 def trip_list(request):
 	trips = Trip.objects.filter(owner=request.user)
-	return render(request, 'trips/trip_list.html', {'trips': trips})
+	selected_status = request.GET.get('status', 'all').strip().lower()
+	allowed_statuses = {choice[0] for choice in Trip.STATUS_CHOICES}
+
+	if selected_status in allowed_statuses:
+		trips = trips.filter(status=selected_status)
+	else:
+		selected_status = 'all'
+
+	return render(
+		request,
+		'trips/trip_list.html',
+		{
+			'trips': trips,
+			'selected_status': selected_status,
+		},
+	)
 
 
 @login_required
@@ -44,6 +59,18 @@ def trip_detail(request, trip_id):
 	place_form = PlaceForm(request.POST or None, prefix='place')
 
 	if request.method == 'POST':
+		if 'update_trip_status' in request.POST:
+			new_status = request.POST.get('trip_status', '').strip()
+			allowed_statuses = {choice[0] for choice in Trip.STATUS_CHOICES}
+			if new_status in allowed_statuses and trip.status != new_status:
+				trip.status = new_status
+				trip.save(update_fields=['status'])
+			return redirect('trip_detail', trip_id=trip.id)
+
+		if 'delete_trip' in request.POST:
+			trip.delete()
+			return redirect('trip_list')
+
 		if 'add_itinerary' in request.POST and itinerary_form.is_valid():
 			itinerary_item = itinerary_form.save(commit=False)
 			itinerary_item.trip = trip

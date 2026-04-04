@@ -4,9 +4,73 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 {% endblock %}
 
+{% block nav_secondary %}
+<div class="ribbon-group secondary" id="trip-detail-ribbon">
+    <a href="#trip-overview" class="active">Overview</a>
+    <a href="#trip-map-section">Map</a>
+    <a href="#trip-suggestions-section">Suggestions</a>
+    <a href="#trip-itinerary-section">Itinerary</a>
+    <a href="#trip-places-section">Saved Places</a>
+    <a href="#trip-route-section">Route</a>
+    <a href="#trip-checklist-section">Checklist</a>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>{{ trip.destination }}</h1>
+
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-overview">
+    <div class="section-heading">
+        <h2>{{ trip.destination }}</h2>
+        <span class="section-kicker">Overview</span>
+    </div>
+    <div class="chip-row" style="margin-top: -0.2rem;">
+        <span class="tag {% if trip.status == 'completed' %}success{% elif trip.status == 'cancelled' %}warn{% else %}neutral{% endif %}">
+            Status: {{ trip.get_status_display }}
+        </span>
+    </div>
+    <div class="toolbar" style="margin-bottom: 0.9rem;">
+        <form method="post" style="flex: 1 1 170px; margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="trip_status" value="completed" />
+            <button type="submit" name="update_trip_status">Mark Completed</button>
+        </form>
+        <form method="post" style="flex: 1 1 170px; margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="trip_status" value="cancelled" />
+            <button type="submit" name="update_trip_status" class="button secondary">Mark Cancelled</button>
+        </form>
+        <form method="post" style="flex: 1 1 170px; margin: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="trip_status" value="planned" />
+            <button type="submit" name="update_trip_status" class="button tertiary">Set Planned</button>
+        </form>
+        <form method="post" style="flex: 1 1 170px; margin: 0;" onsubmit="return confirm('Delete this trip and all related items? This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" name="delete_trip" class="button danger">Delete Trip</button>
+        </form>
+    </div>
+    <div class="stats-strip">
+        <div class="stat-pill">
+            <strong>{{ trip.start_date }} to {{ trip.end_date }}</strong>
+            <span>Travel Window</span>
+        </div>
+        <div class="stat-pill">
+            <strong>{{ trip.places.count }}</strong>
+            <span>Saved Places</span>
+        </div>
+        <div class="stat-pill">
+            <strong>{{ trip.itinerary_items.count }}</strong>
+            <span>Itinerary Items</span>
+        </div>
+        <div class="stat-pill">
+            <strong>{{ trip.checklist_items.count }}</strong>
+            <span>Checklist Items</span>
+        </div>
+        <div class="stat-pill">
+            <strong>{{ map_points|length }}</strong>
+            <span>Mapped Points</span>
+        </div>
+    </div>
     {% if trip.destination_lat and trip.destination_lng %}
         <p class="tag">Mapped destination: {{ trip.destination_lat }}, {{ trip.destination_lng }}</p>
     {% else %}
@@ -17,52 +81,21 @@
     <p><strong>Interests:</strong> {{ trip.interests }}</p>
 </div>
 
-<div class="card" style="margin-top: 1rem;">
-    <h2>Map</h2>
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-map-section">
+    <div class="section-heading">
+        <h2>Map & Saved Places</h2>
+        <span class="section-kicker">Locations</span>
+    </div>
     <div class="map-shell">
         <div id="trip-map" class="map-canvas"></div>
     </div>
-    <p class="muted" id="map-status" style="margin-bottom: 0;">Showing destination and saved places on an OpenStreetMap layer.</p>
-</div>
+    <p class="muted" id="map-status">Showing destination and saved places on an OpenStreetMap layer.</p>
 
-<div class="grid" style="margin-top: 1rem;">
-    <div class="card">
-        <h2>Weather-aware Suggestions ({{ suggestions.season|title }})</h2>
-        <ul>
-            {% for tip in suggestions.tips %}
-                <li>{{ tip }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <div class="card">
-        <h2>Itinerary</h2>
-        {% if trip.itinerary_items.all %}
-            <ul>
-                {% for item in trip.itinerary_items.all %}
-                    <li>
-                        <strong>{{ item.date }}:</strong> {{ item.title }}
-                        {% if item.notes %}<br><span class="muted">{{ item.notes }}</span>{% endif %}
-                        <br><span class="muted">Estimated cost: {{ item.estimated_cost }}</span>
-                    </li>
-                {% empty %}
-                    <li>No itinerary items yet.</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-
-        <h3>Add itinerary item</h3>
-        <form method="post">
-            {% csrf_token %}
-            {{ itinerary_form.as_p }}
-            <button type="submit" name="add_itinerary">Add Item</button>
-        </form>
-    </div>
-</div>
-
-<div class="grid" style="margin-top: 1rem;">
-    <div class="card">
-        <h2>Saved Places</h2>
+    <div id="trip-places-section" class="section-anchor" style="border-top: 1px solid #e3ece6; margin-top: 1rem; padding-top: 1rem;">
+        <div class="section-heading">
+            <h2>Saved Places</h2>
+            <span class="section-kicker">Spots</span>
+        </div>
         {% if trip.places.all %}
             <ul>
                 {% for place in trip.places.all %}
@@ -79,9 +112,18 @@
         {% endif %}
 
         <h3>Save place or attraction</h3>
+        <p class="muted">Tip: click on the map to auto-fill latitude and longitude.</p>
         <form method="post">
             {% csrf_token %}
             <div class="stack">
+                <div>
+                    <label for="place-search-input"><strong>Search place</strong></label>
+                    <input id="place-search-input" type="text" placeholder="Start typing a place name..." autocomplete="off" />
+                    <div id="place-suggestions" class="card" style="padding: 0.45rem; margin-top: 0.4rem; display: none;">
+                        <div class="muted" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Recommended places</div>
+                        <ul id="place-suggestions-list" style="margin: 0; padding-left: 0; list-style: none;"></ul>
+                    </div>
+                </div>
                 <div class="field-grid">
                     <div>
                         <label for="id_place-name"><strong>Name</strong></label>
@@ -114,46 +156,91 @@
             <button type="submit" name="add_place">Save Place</button>
         </form>
     </div>
-
-    <div class="card">
-        <h2>Route Planner</h2>
-        <p class="muted">Choose any two mapped points to draw a simple route line on the map.</p>
-        <div class="field-grid">
-            <div>
-                <label for="route-start"><strong>From</strong></label>
-                <select id="route-start">
-                    <option value="">Select a point</option>
-                    {% if trip.destination_lat and trip.destination_lng %}
-                        <option value="destination">Trip destination</option>
-                    {% endif %}
-                    {% for place in trip.places.all %}
-                        <option value="place-{{ place.id }}">{{ place.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label for="route-end"><strong>To</strong></label>
-                <select id="route-end">
-                    <option value="">Select a point</option>
-                    {% if trip.destination_lat and trip.destination_lng %}
-                        <option value="destination">Trip destination</option>
-                    {% endif %}
-                    {% for place in trip.places.all %}
-                        <option value="place-{{ place.id }}">{{ place.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="toolbar" style="margin-top: 0.75rem;">
-            <button type="button" id="draw-route-button">Draw Route</button>
-            <button type="button" id="clear-route-button" class="button secondary">Clear Route</button>
-        </div>
-        <p class="muted" id="route-status" style="margin-bottom: 0;"></p>
-    </div>
 </div>
 
-<div class="card" style="margin-top: 1rem;">
-    <h2>Planning Checklist</h2>
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-suggestions-section">
+    <div class="section-heading">
+        <h2>Weather-aware Suggestions</h2>
+        <span class="section-kicker">{{ suggestions.season|title }}</span>
+    </div>
+    <ul>
+        {% for tip in suggestions.tips %}
+            <li>{{ tip }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-itinerary-section">
+    <div class="section-heading">
+        <h2>Itinerary</h2>
+        <span class="section-kicker">Plan</span>
+    </div>
+    {% if trip.itinerary_items.all %}
+        <ul>
+            {% for item in trip.itinerary_items.all %}
+                <li>
+                    <strong>{{ item.date }}:</strong> {{ item.title }}
+                    {% if item.notes %}<br><span class="muted">{{ item.notes }}</span>{% endif %}
+                    <br><span class="muted">Estimated cost: {{ item.estimated_cost }}</span>
+                </li>
+            {% empty %}
+                <li>No itinerary items yet.</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <h3>Add itinerary item</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ itinerary_form.as_p }}
+        <button type="submit" name="add_itinerary">Add Item</button>
+    </form>
+</div>
+
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-route-section">
+    <div class="section-heading">
+        <h2>Route Planner</h2>
+        <span class="section-kicker">Path</span>
+    </div>
+    <p class="muted">Choose any two mapped points to draw a simple route line on the map.</p>
+    <div class="field-grid">
+        <div>
+            <label for="route-start"><strong>From</strong></label>
+            <select id="route-start">
+                <option value="">Select a point</option>
+                {% if trip.destination_lat and trip.destination_lng %}
+                    <option value="destination">Trip destination</option>
+                {% endif %}
+                {% for place in trip.places.all %}
+                    <option value="place-{{ place.id }}">{{ place.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="route-end"><strong>To</strong></label>
+            <select id="route-end">
+                <option value="">Select a point</option>
+                {% if trip.destination_lat and trip.destination_lng %}
+                    <option value="destination">Trip destination</option>
+                {% endif %}
+                {% for place in trip.places.all %}
+                    <option value="place-{{ place.id }}">{{ place.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="toolbar" style="margin-top: 0.75rem;">
+        <button type="button" id="draw-route-button">Draw Route</button>
+        <button type="button" id="clear-route-button" class="button secondary">Clear Route</button>
+    </div>
+    <p class="muted" id="route-status" style="margin-bottom: 0;"></p>
+</div>
+
+<div class="card section-anchor section-panel reveal-on-scroll" id="trip-checklist-section">
+    <div class="section-heading">
+        <h2>Planning Checklist</h2>
+        <span class="section-kicker">Prep</span>
+    </div>
     <ul>
         {% for item in trip.checklist_items.all %}
             <li>
@@ -189,9 +276,91 @@
         const clearRouteButton = document.getElementById('clear-route-button');
         const routeStatus = document.getElementById('route-status');
         const mapStatus = document.getElementById('map-status');
+        const placeSearchInput = document.getElementById('place-search-input');
+        const placeSuggestionsPanel = document.getElementById('place-suggestions');
+        const placeSuggestionsList = document.getElementById('place-suggestions-list');
+        const placeNameInput = document.getElementById('id_place-name');
+        const placeAddressInput = document.getElementById('id_place-address');
+        const placeLatitudeInput = document.getElementById('id_place-latitude');
+        const placeLongitudeInput = document.getElementById('id_place-longitude');
+        const ribbonLinks = Array.from(document.querySelectorAll('#trip-detail-ribbon a[href^="#"]'));
+        const revealItems = Array.from(document.querySelectorAll('.reveal-on-scroll'));
 
         if (!mapElement) {
             return;
+        }
+
+        const sectionTargets = ribbonLinks
+            .map((link) => {
+                const href = link.getAttribute('href');
+                if (!href) {
+                    return null;
+                }
+                return document.querySelector(href);
+            })
+            .filter(Boolean);
+
+        function setActiveRibbonLink(sectionId) {
+            ribbonLinks.forEach((link) => {
+                const linkTarget = (link.getAttribute('href') || '').replace('#', '');
+                if (linkTarget === sectionId) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+
+        if (ribbonLinks.length) {
+            const initialHash = window.location.hash.replace('#', '');
+            setActiveRibbonLink(initialHash || 'trip-overview');
+
+            ribbonLinks.forEach((link) => {
+                link.addEventListener('click', () => {
+                    const linkTarget = (link.getAttribute('href') || '').replace('#', '');
+                    if (linkTarget) {
+                        setActiveRibbonLink(linkTarget);
+                    }
+                });
+            });
+
+            if ('IntersectionObserver' in window && sectionTargets.length) {
+                const ribbonObserver = new IntersectionObserver((entries) => {
+                    const visibleSections = entries
+                        .filter((entry) => entry.isIntersecting)
+                        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+                    if (visibleSections.length) {
+                        setActiveRibbonLink(visibleSections[0].target.id);
+                    }
+                }, {
+                    root: null,
+                    threshold: [0.2, 0.35, 0.55],
+                    rootMargin: '-90px 0px -48% 0px',
+                });
+
+                sectionTargets.forEach((section) => ribbonObserver.observe(section));
+            }
+        }
+
+        if (revealItems.length) {
+            if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                const revealObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, {
+                    threshold: 0.15,
+                    rootMargin: '0px 0px -10% 0px',
+                });
+
+                revealItems.forEach((item) => revealObserver.observe(item));
+            } else {
+                revealItems.forEach((item) => item.classList.add('is-visible'));
+            }
         }
 
         const points = JSON.parse(document.getElementById('trip-map-points').textContent || '[]');
@@ -220,6 +389,129 @@
         }
 
         let routeLayer = null;
+        let pickedLocationMarker = null;
+        let placeSearchDebounceTimer = null;
+        let placeLastQuery = '';
+        let placeSuggestionResults = [];
+
+        async function fetchPlaceSuggestions(query) {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(query)}`, {
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+            return response.json();
+        }
+
+        function hidePlaceSuggestions() {
+            if (!placeSuggestionsPanel || !placeSuggestionsList) {
+                return;
+            }
+            placeSuggestionsPanel.style.display = 'none';
+            placeSuggestionsList.innerHTML = '';
+        }
+
+        function applyPlaceSelection(selection) {
+            if (placeNameInput) {
+                const nameParts = (selection.display_name || '').split(',');
+                placeNameInput.value = (nameParts[0] || selection.name || 'Selected place').trim();
+            }
+            if (placeAddressInput) {
+                placeAddressInput.value = selection.display_name || '';
+            }
+            if (placeLatitudeInput) {
+                placeLatitudeInput.value = Number(selection.lat).toFixed(6);
+            }
+            if (placeLongitudeInput) {
+                placeLongitudeInput.value = Number(selection.lon).toFixed(6);
+            }
+
+            const selectedLatLng = [Number(selection.lat), Number(selection.lon)];
+            if (pickedLocationMarker) {
+                pickedLocationMarker.setLatLng(selectedLatLng);
+            } else {
+                pickedLocationMarker = L.circleMarker(selectedLatLng, {
+                    radius: 6,
+                    color: '#f4a259',
+                    fillColor: '#f4a259',
+                    fillOpacity: 0.95,
+                }).addTo(map);
+            }
+            map.setView(selectedLatLng, Math.max(map.getZoom(), 12));
+            routeStatus.textContent = 'Place details copied from recommendations.';
+        }
+
+        function renderPlaceSuggestions(results) {
+            if (!placeSuggestionsPanel || !placeSuggestionsList) {
+                return;
+            }
+
+            placeSuggestionsList.innerHTML = '';
+            if (!results.length) {
+                hidePlaceSuggestions();
+                return;
+            }
+
+            results.forEach((result) => {
+                const item = document.createElement('li');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'button secondary';
+                button.style.width = '100%';
+                button.style.textAlign = 'left';
+                button.style.marginBottom = '0.35rem';
+                button.textContent = result.display_name;
+                button.addEventListener('click', () => {
+                    applyPlaceSelection(result);
+                    hidePlaceSuggestions();
+                });
+                item.appendChild(button);
+                placeSuggestionsList.appendChild(item);
+            });
+
+            placeSuggestionsPanel.style.display = 'block';
+        }
+
+        if (placeSearchInput && placeSuggestionsPanel && placeSuggestionsList) {
+            placeSearchInput.addEventListener('input', () => {
+                const query = placeSearchInput.value.trim();
+                placeLastQuery = query;
+
+                if (placeSearchDebounceTimer) {
+                    clearTimeout(placeSearchDebounceTimer);
+                }
+
+                if (query.length < 2) {
+                    hidePlaceSuggestions();
+                    return;
+                }
+
+                placeSearchDebounceTimer = setTimeout(async () => {
+                    try {
+                        const results = await fetchPlaceSuggestions(query);
+                        if (placeLastQuery !== query) {
+                            return;
+                        }
+                        placeSuggestionResults = results;
+                        renderPlaceSuggestions(results);
+                    } catch (error) {
+                        hidePlaceSuggestions();
+                    }
+                }, 300);
+            });
+
+            placeSearchInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    hidePlaceSuggestions();
+                }, 120);
+            });
+
+            placeSearchInput.addEventListener('focus', () => {
+                if (placeSuggestionResults.length) {
+                    renderPlaceSuggestions(placeSuggestionResults);
+                }
+            });
+        }
 
         function clearRoute() {
             if (routeLayer) {
@@ -227,6 +519,29 @@
                 routeLayer = null;
             }
         }
+
+        map.on('click', (event) => {
+            if (!placeLatitudeInput || !placeLongitudeInput) {
+                return;
+            }
+
+            const { lat, lng } = event.latlng;
+            placeLatitudeInput.value = Number(lat).toFixed(6);
+            placeLongitudeInput.value = Number(lng).toFixed(6);
+
+            if (pickedLocationMarker) {
+                pickedLocationMarker.setLatLng(event.latlng);
+            } else {
+                pickedLocationMarker = L.circleMarker(event.latlng, {
+                    radius: 6,
+                    color: '#f4a259',
+                    fillColor: '#f4a259',
+                    fillOpacity: 0.95,
+                }).addTo(map);
+            }
+
+            routeStatus.textContent = 'Picked map point copied to the place form coordinates.';
+        });
 
         drawRouteButton?.addEventListener('click', () => {
             const startPoint = lookup.get(routeStart.value);

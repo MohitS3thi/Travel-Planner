@@ -4,7 +4,8 @@ from .models import ChecklistItem, ItineraryItem, Place, Trip
 
 @admin.register(Trip)
 class TripAdmin(admin.ModelAdmin):
-	list_display = ('destination', 'owner', 'start_date', 'end_date', 'budget')
+	list_display = ('destination', 'owner', 'start_date', 'end_date', 'budget', 'status')
+	list_filter = ('status',)
 	search_fields = ('destination', 'owner__username')
 
 

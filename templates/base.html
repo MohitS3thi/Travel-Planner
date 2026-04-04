@@ -9,14 +9,19 @@
     {% block extra_head %}{% endblock %}
     <style>
         :root {
-            --bg-1: #f3f7f1;
-            --bg-2: #e2efe7;
-            --surface: #ffffff;
-            --text: #1f2933;
-            --accent: #0b6e4f;
-            --accent-2: #f4a259;
-            --border: #d8e2dc;
-            --map-border: #c7d5cb;
+            --bg-1: #0c141d;
+            --bg-2: #162331;
+            --surface: #1a2a38;
+            --surface-2: #223749;
+            --text: #e8f0f4;
+            --text-soft: #a8bcc8;
+            --accent: #41c99d;
+            --accent-2: #f2be63;
+            --accent-3: #2ca57e;
+            --border: #30475b;
+            --map-border: #365065;
+            --shadow-soft: 0 12px 34px rgba(2, 8, 16, 0.34);
+            --shadow-elevated: 0 16px 38px rgba(2, 8, 16, 0.46);
         }
 
         * { box-sizing: border-box; }
@@ -25,58 +30,125 @@
             margin: 0;
             font-family: 'Source Sans 3', sans-serif;
             color: var(--text);
-            background: linear-gradient(140deg, var(--bg-1), var(--bg-2));
+            background: radial-gradient(circle at 0% 0%, #1a2b39 0%, transparent 38%),
+                        radial-gradient(circle at 95% 8%, #132638 0%, transparent 34%),
+                        linear-gradient(145deg, var(--bg-1), var(--bg-2));
             min-height: 100vh;
+            line-height: 1.5;
         }
 
         .container {
-            width: min(960px, 92%);
-            margin: 2rem auto;
+            width: min(1080px, 92%);
+            margin: 2rem auto 2.5rem;
         }
 
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 1.2rem;
-            box-shadow: 0 8px 22px rgba(17, 24, 39, 0.05);
+            border-radius: 18px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-soft);
         }
 
         h1, h2, h3 {
             font-family: 'Outfit', sans-serif;
             margin-top: 0;
+            letter-spacing: -0.01em;
         }
 
-        nav {
+        nav.main-ribbon {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 1.2rem;
             gap: 1rem;
+            flex-wrap: wrap;
+            padding: 0.8rem 0.9rem;
+            border-radius: 18px;
+            border: 1px solid #345066;
+            background: rgba(24, 40, 54, 0.92);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+            position: sticky;
+            top: 0.8rem;
+            z-index: 35;
+        }
+
+        .main-ribbon .ribbon-group {
+            display: flex;
+            gap: 0.45rem;
+            align-items: center;
             flex-wrap: wrap;
         }
 
-        nav a {
+        .main-ribbon .ribbon-group.secondary {
+            width: 100%;
+            padding-top: 0.35rem;
+            border-top: 1px solid #375267;
+        }
+
+        nav.main-ribbon a:not(.button) {
             color: var(--accent);
             text-decoration: none;
             font-weight: 600;
         }
 
+        .main-ribbon .ribbon-group.secondary a,
+        .section-ribbon a {
+            text-decoration: none;
+            color: var(--accent);
+            font-weight: 700;
+            padding: 0.45rem 0.8rem;
+            border-radius: 999px;
+            border: 1px solid #3a576d;
+            background: #22384a;
+            font-size: 0.92rem;
+        }
+
+        .main-ribbon .ribbon-group.secondary a:hover,
+        .section-ribbon a:hover {
+            background: #2a4459;
+        }
+
         .button, button {
-            background: var(--accent);
-            border: none;
-            color: white;
-            padding: 0.6rem 0.9rem;
-            border-radius: 10px;
+            background: linear-gradient(160deg, var(--accent), var(--accent-3));
+            border: 1px solid rgba(22, 131, 101, 0.52);
+            color: #f5fffb;
+            padding: 0.62rem 0.95rem;
+            border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            line-height: 1;
+            transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+        }
+
+        .button:hover, button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(7, 44, 34, 0.35);
+            filter: saturate(1.04);
         }
 
         .button.secondary {
-            background: var(--accent-2);
-            color: #1f2933;
+            background: linear-gradient(170deg, #f5c678, var(--accent-2));
+            border-color: rgba(179, 126, 42, 0.5);
+            color: #1e2630;
+        }
+
+        .button.tertiary {
+            background: linear-gradient(170deg, #304a5f, #263e52);
+            border-color: rgba(105, 141, 164, 0.4);
+            color: #dbe8ef;
+        }
+
+        .button.danger {
+            background: linear-gradient(165deg, #d4574f, #b63232);
+            border-color: rgba(106, 24, 24, 0.45);
+            color: #fff7f7;
         }
 
         form p {
@@ -85,10 +157,19 @@
 
         input, textarea, select {
             width: 100%;
-            padding: 0.55rem;
-            border: 1px solid #c9d5cc;
-            border-radius: 8px;
+            padding: 0.62rem;
+            border: 1px solid #3a556a;
+            border-radius: 10px;
             font: inherit;
+            color: var(--text);
+            background: #132433;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #66c5a4;
+            box-shadow: 0 0 0 3px rgba(52, 161, 126, 0.2);
         }
 
         .grid {
@@ -102,7 +183,7 @@
         }
 
         .muted {
-            color: #52606d;
+            color: var(--text-soft);
             font-size: 0.95rem;
         }
 
@@ -138,6 +219,7 @@
             border-radius: 14px;
             overflow: hidden;
             background: linear-gradient(160deg, #f8faf7, #eef5ef);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
 
         .map-canvas {
@@ -156,23 +238,196 @@
             font-weight: 600;
         }
 
+        .tag.success {
+            background: #e5f6ed;
+            color: #0c6a44;
+        }
+
+        .tag.warn {
+            background: #fff1e6;
+            color: #9c4a17;
+        }
+
+        .tag.neutral {
+            background: #edf2f7;
+            color: #2b4f6a;
+        }
+
         .stack {
             display: grid;
             gap: 0.85rem;
+        }
+
+        .section-ribbon {
+            position: sticky;
+            top: 0.8rem;
+            z-index: 30;
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 0.6rem;
+            border-radius: 999px;
+            border: 1px solid #345066;
+            background: rgba(24, 40, 54, 0.92);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        .section-ribbon a {
+            text-decoration: none;
+        }
+
+        .main-ribbon .ribbon-group.secondary a.active,
+        .section-ribbon a.active {
+            background: linear-gradient(160deg, var(--accent), var(--accent-3));
+            color: #ffffff;
+            border-color: rgba(9, 79, 57, 0.55);
+            box-shadow: 0 8px 16px rgba(11, 76, 57, 0.22);
+        }
+
+        .section-anchor {
+            scroll-margin-top: 6rem;
+        }
+
+        .section-panel {
+            margin-top: 1rem;
+            padding: 1.25rem;
+            border-radius: 16px;
+            border: 1px solid #355168;
+            background: linear-gradient(180deg, var(--surface), var(--surface-2));
+            box-shadow: var(--shadow-soft);
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.85rem;
+            padding-bottom: 0.55rem;
+            border-bottom: 1px solid #38536a;
+        }
+
+        .section-heading h2 {
+            margin: 0;
+        }
+
+        .section-kicker {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9cc5b4;
+            font-weight: 700;
+        }
+
+        .hero-banner {
+            margin-bottom: 1rem;
+            border-radius: 18px;
+            border: 1px solid #375167;
+            padding: 1rem 1.2rem;
+            background: linear-gradient(130deg, rgba(28, 47, 62, 0.92), rgba(24, 40, 54, 0.95));
+            box-shadow: var(--shadow-soft);
+        }
+
+        .hero-banner p {
+            margin: 0.2rem 0 0;
+        }
+
+        .chip-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 0.4rem 0 0.85rem;
+        }
+
+        .chip {
+            border-radius: 999px;
+            border: 1px solid #39556a;
+            background: #22384a;
+            padding: 0.28rem 0.62rem;
+            font-size: 0.83rem;
+            color: #c6dae5;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            border-radius: 14px;
+            border: 1px dashed #466077;
+            padding: 1rem;
+            background: #1b2f3f;
+        }
+
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.7rem;
+            margin: 0.65rem 0 1rem;
+        }
+
+        .stat-pill {
+            border: 1px solid #39556a;
+            border-radius: 12px;
+            padding: 0.62rem 0.72rem;
+            background: linear-gradient(180deg, #203546, #1b2f3f);
+        }
+
+        .stat-pill strong {
+            display: block;
+            font-size: 1.05rem;
+            font-family: 'Outfit', sans-serif;
+            color: #d7ebf5;
+            line-height: 1.2;
+        }
+
+        .stat-pill span {
+            font-size: 0.8rem;
+            letter-spacing: 0.02em;
+            color: #9db4c2;
+        }
+
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 380ms ease, transform 380ms ease;
+        }
+
+        .reveal-on-scroll.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal-on-scroll {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                width: min(100%, 95%);
+                margin-top: 1rem;
+            }
+
+            nav.main-ribbon {
+                padding: 0.7rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <nav>
-            <div>
+        <nav class="main-ribbon">
+            <div class="ribbon-group">
                 <a href="{% url 'trip_list' %}"><strong>Travel Planner</strong></a>
             </div>
-            <div>
+            <div class="ribbon-group">
                 {% if user.is_authenticated %}
                     <span class="muted">Signed in as {{ user.username }}</span>
                     <a class="button" href="{% url 'trip_create' %}">New Trip</a>
-                    <form action="{% url 'logout' %}" method="post" style="display:inline; margin-left: .4rem;">
+                    <form action="{% url 'logout' %}" method="post" style="display: inline-flex; margin-left: .4rem;">
                         {% csrf_token %}
                         <button type="submit" class="button secondary">Logout</button>
                     </form>
@@ -181,6 +436,7 @@
                     <a href="{% url 'signup' %}">Sign up</a>
                 {% endif %}
             </div>
+            {% block nav_secondary %}{% endblock %}
         </nav>
 
         {% block content %}{% endblock %}

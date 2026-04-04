@@ -1,26 +1,56 @@
 {% extends 'base.html' %}
 
+{% block nav_secondary %}
+<div class="ribbon-group secondary">
+    <a href="{% url 'trip_list' %}" class="{% if selected_status == 'all' %}active{% endif %}">All</a>
+    <a href="{% url 'trip_list' %}?status=planned" class="{% if selected_status == 'planned' %}active{% endif %}">Planned</a>
+    <a href="{% url 'trip_list' %}?status=completed" class="{% if selected_status == 'completed' %}active{% endif %}">Completed</a>
+    <a href="{% url 'trip_list' %}?status=cancelled" class="{% if selected_status == 'cancelled' %}active{% endif %}">Cancelled</a>
+</div>
+{% endblock %}
+
 {% block content %}
+<div class="hero-banner">
+    <h1 style="margin-bottom: 0.2rem;">Your Travel Dashboard</h1>
+    <p class="muted">Build plans, pin locations on the map, and keep your trip prep organized in one place.</p>
+</div>
+
 <div class="card">
-    <h1>Your Trips</h1>
+    <h2 style="margin-bottom: 0.85rem;">Your Trips</h2>
     {% if trips %}
         <div class="grid">
             {% for trip in trips %}
                 <div class="card">
                     <h3>{{ trip.destination }}</h3>
+                    <p>
+                        <span class="tag {% if trip.status == 'completed' %}success{% elif trip.status == 'cancelled' %}warn{% else %}neutral{% endif %}">
+                            {{ trip.get_status_display }}
+                        </span>
+                    </p>
                     {% if trip.destination_lat and trip.destination_lng %}
                         <p class="tag">Mapped: {{ trip.destination_lat }}, {{ trip.destination_lng }}</p>
                     {% endif %}
                     <p class="muted">{{ trip.start_date }} to {{ trip.end_date }}</p>
-                    <p><strong>Budget:</strong> {{ trip.budget }}</p>
-                    <p><strong>Interests:</strong> {{ trip.interests }}</p>
+                    <div class="chip-row">
+                        <span class="chip">Budget: {{ trip.budget }}</span>
+                    </div>
+                    <p><strong>Interests</strong></p>
+                    <p class="muted" style="margin-top: -0.35rem;">{{ trip.interests }}</p>
                     <a class="button" href="{% url 'trip_detail' trip.id %}">Open Plan</a>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <p>No trips yet.</p>
-        <a class="button" href="{% url 'trip_create' %}">Create your first trip</a>
+        <div class="empty-state">
+            {% if selected_status == 'all' %}
+                <p style="margin-top: 0;">No trips yet.</p>
+                <p class="muted">Start with a destination and we will help you map places, routes, and checklist items.</p>
+            {% else %}
+                <p style="margin-top: 0;">No {{ selected_status }} trips found.</p>
+                <p class="muted">Try another tab or create a new trip.</p>
+            {% endif %}
+            <a class="button" href="{% url 'trip_create' %}">Create your first trip</a>
+        </div>
     {% endif %}
 </div>
 {% endblock %}
