@@ -5,13 +5,13 @@
 {% endblock %}
 
 {% block content %}
-<div class="hero-banner" style="max-width: 860px; margin: 0 auto 1rem;">
-    <h1 style="margin-bottom: 0.2rem;">Plan a New Trip</h1>
-    <p class="muted">Search a destination, pick points directly on the map, and start your itinerary in minutes.</p>
+<div class="hero-banner" style="margin: 0 0 1rem;">
+    <h1 style="margin-bottom: 0.2rem;">{% if is_edit_mode %}Edit Trip{% else %}Plan a New Trip{% endif %}</h1>
+    <p class="muted">{% if is_edit_mode %}Update trip details now and fine-tune the plan whenever you need.{% else %}Search a destination, pick points directly on the map, and start your itinerary in minutes.{% endif %}</p>
 </div>
 
-<div class="card" style="max-width: 760px; margin: 0 auto; padding: 1.35rem;">
-    <h2>Create Trip</h2>
+<div class="card" style="width: 100%; margin: 0; padding: 1.35rem;">
+    <h2>{% if is_edit_mode %}Update Trip{% else %}Create Trip{% endif %}</h2>
     <form method="post">
         {% csrf_token %}
         <div class="stack">
@@ -49,13 +49,17 @@
                 </div>
                 <div>
                     <label for="id_budget"><strong>Budget</strong></label>
-                    {{ form.budget }}
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.1rem;">₹</span>
+                        {{ form.budget }}
+                    </div>
                 </div>
             </div>
 
             <div>
-                <label for="id_interests"><strong>Interests</strong></label>
+                <label for="id_interests"><strong>Interests (optional)</strong></label>
                 {{ form.interests }}
+                <p class="muted" style="margin-top: 0.35rem;">You can leave this blank now and add it later from Edit Trip.</p>
             </div>
         </div>
         {{ form.non_field_errors }}
@@ -64,7 +68,10 @@
                 {{ field.errors }}
             {% endif %}
         {% endfor %}
-        <button type="submit">Save Trip</button>
+        <button type="submit">{% if is_edit_mode %}Save Changes{% else %}Save Trip{% endif %}</button>
+        {% if is_edit_mode and trip %}
+            <a class="button tertiary" href="{% url 'trip_detail' trip.id %}" style="margin-left: 0.5rem;">Cancel</a>
+        {% endif %}
     </form>
     <div class="map-shell" style="margin-top: 0.9rem;">
         <div id="destination-picker-map" class="map-canvas" style="min-height: 300px;"></div>
@@ -83,6 +90,8 @@
         const destinationField = document.getElementById('id_destination');
         const latitudeField = document.getElementById('id_destination_lat');
         const longitudeField = document.getElementById('id_destination_lng');
+        const startDateField = document.getElementById('id_start_date');
+        const endDateField = document.getElementById('id_end_date');
         const status = document.getElementById('destination-search-status');
         const mapElement = document.getElementById('destination-picker-map');
         const suggestionsPanel = document.getElementById('destination-suggestions');
@@ -97,6 +106,26 @@
         let searchDebounceTimer = null;
         let lastRequestedQuery = '';
         let suggestionResults = [];
+
+        function syncTripDateRange() {
+            if (!startDateField || !endDateField) {
+                return;
+            }
+
+            if (startDateField.value) {
+                endDateField.min = startDateField.value;
+                if (endDateField.value && endDateField.value < startDateField.value) {
+                    endDateField.value = startDateField.value;
+                }
+            } else {
+                endDateField.removeAttribute('min');
+            }
+        }
+
+        if (startDateField && endDateField) {
+            startDateField.addEventListener('change', syncTripDateRange);
+            syncTripDateRange();
+        }
 
         function hideSuggestions() {
             suggestionsPanel.style.display = 'none';

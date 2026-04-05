@@ -11,6 +11,10 @@ A basic travel-planner web app built with Django where users can:
 - Add itinerary items manually
 - Add and track planning checklist items (hotel, train/transport tickets, visa/documents, packing, other)
 - Get weather-aware planning suggestions based on season and interests
+- View live current weather for mapped destinations
+- See a 5-day forecast with rain chance and temperature windows
+- Receive weather warning banners (rain, storm, heat, cold)
+- Get smart day-shifting recommendations for outdoor sightseeing
 
 ## Tech Stack
 - Python 3.11
@@ -84,6 +88,12 @@ Open in browser:
 - Trip creation includes a destination search helper that can populate latitude and longitude from OpenStreetMap search results.
 - Trip detail pages show a Leaflet map with the destination marker and any saved places.
 - Saved places can be added directly from the trip page and used to draw a simple route line.
+
+## Weather Intelligence
+- Trip detail pages fetch current weather and a 5-day forecast using destination coordinates.
+- Weather warnings are shown when high-risk conditions are detected.
+- The planner suggests a better sightseeing day based on forecast quality.
+- If coordinates are missing or the weather API is unavailable, the UI falls back gracefully.
 
 ## Admin
 Create a superuser:

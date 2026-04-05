@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary">
+    <a href="{% url 'trip_itinerary' trip.id %}">Back to Itinerary</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card section-panel">
+    <div class="section-heading">
+        <h2>Edit Activity</h2>
+        <span class="section-kicker">{{ trip.destination }} - {{ item.date }}</span>
+    </div>
+
+    <p class="muted">Allocate your budget and update activity details.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="errorlist">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="stack">
+            <div>
+                <label for="id_itinerary-date"><strong>Date</strong></label>
+                {{ form.date }}
+            </div>
+            <div>
+                <label for="id_itinerary-title"><strong>Title</strong></label>
+                {{ form.title }}
+            </div>
+            <div>
+                <label for="id_itinerary-notes"><strong>Notes</strong></label>
+                {{ form.notes }}
+            </div>
+            <div>
+                <label for="id_itinerary-estimated_cost"><strong>Estimated Cost</strong></label>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.1rem;">₹</span>
+                    {{ form.estimated_cost }}
+                </div>
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Allocate from your trip budget of ₹{{ trip.budget|floatformat:2 }}</p>
+            </div>
+        </div>
+        <div class="toolbar">
+            <button type="submit">Save Changes</button>
+            <a href="{% url 'trip_itinerary' trip.id %}" class="button secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

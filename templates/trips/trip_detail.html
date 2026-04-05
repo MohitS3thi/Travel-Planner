@@ -2,6 +2,29 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    .collapsible-row {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transform: translateY(-4px);
+        transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
+    }
+
+    .collapsible-row.is-visible {
+        max-height: 140px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block nav_trip_actions %}
+<div class="ribbon-group">
+    <a href="{% url 'trip_detail' trip.id %}" class="active" style="font-weight: 600;">Trip Overview</a>
+    <a href="{% url 'trip_itinerary' trip.id %}" style="font-weight: 600;">Itinerary & Budget</a>
+    <a href="{% url 'trip_weather' trip.id %}" style="font-weight: 600;">Weather</a>
+</div>
 {% endblock %}
 
 {% block nav_secondary %}
@@ -9,8 +32,6 @@
     <a href="#trip-overview" class="active">Overview</a>
     <a href="#trip-map-section">Map</a>
     <a href="#trip-suggestions-section">Suggestions</a>
-    <a href="#trip-itinerary-section">Itinerary</a>
-    <a href="#trip-places-section">Saved Places</a>
     <a href="#trip-route-section">Route</a>
     <a href="#trip-checklist-section">Checklist</a>
 </div>
@@ -29,6 +50,7 @@
         </span>
     </div>
     <div class="toolbar" style="margin-bottom: 0.9rem;">
+        <a class="button tertiary" href="{% url 'trip_edit' trip.id %}">Edit Trip</a>
         <form method="post" style="flex: 1 1 170px; margin: 0;">
             {% csrf_token %}
             <input type="hidden" name="trip_status" value="completed" />
@@ -77,8 +99,8 @@
         <p class="muted">No coordinates saved yet. Add them from the trip form to unlock the map.</p>
     {% endif %}
     <p><strong>Dates:</strong> {{ trip.start_date }} to {{ trip.end_date }}</p>
-    <p><strong>Budget:</strong> {{ trip.budget }}</p>
-    <p><strong>Interests:</strong> {{ trip.interests }}</p>
+    <p><strong>Budget:</strong> ₹{{ trip.budget }}</p>
+    <p><strong>Interests:</strong> {% if trip.interests %}{{ trip.interests }}{% else %}<span class="muted">Not added yet.</span>{% endif %}</p>
 </div>
 
 <div class="card section-anchor section-panel reveal-on-scroll" id="trip-map-section">
@@ -91,73 +113,38 @@
     </div>
     <p class="muted" id="map-status">Showing destination and saved places on an OpenStreetMap layer.</p>
 
-    <div id="trip-places-section" class="section-anchor" style="border-top: 1px solid #e3ece6; margin-top: 1rem; padding-top: 1rem;">
+    <div style="margin-top: 1.2rem;">
         <div class="section-heading">
             <h2>Saved Places</h2>
-            <span class="section-kicker">Spots</span>
+            <span class="section-kicker">{{ trip.places.count }} place{{ trip.places.count|pluralize }}</span>
         </div>
         {% if trip.places.all %}
-            <ul>
+            <ul style="margin: 0;">
                 {% for place in trip.places.all %}
-                    <li>
+                    <li style="padding: 0.8rem 0; border-bottom: 1px solid #e3ece6;">
                         <strong>{{ place.name }}</strong> <span class="tag">{{ place.get_place_type_display }}</span>
+                        <a class="button tertiary" style="margin-left: 0.4rem;" href="{% url 'place_weather' trip.id place.id %}{% if place.visit_date %}?date={{ place.visit_date|date:'Y-m-d' }}{% endif %}">View Weather</a>
                         {% if place.address %}<div class="muted">{{ place.address }}</div>{% endif %}
                         <div class="muted">{{ place.latitude }}, {{ place.longitude }}</div>
+                        {% if place.visit_date %}
+                            <div class="muted">
+                                Visit: {{ place.visit_date }}
+                                {% if place.is_one_day_visit %}
+                                    <span class="tag neutral">One-day</span>
+                                {% elif place.return_date %}
+                                    to {{ place.return_date }}
+                                {% endif %}
+                            </div>
+                        {% endif %}
                         {% if place.notes %}<div>{{ place.notes }}</div>{% endif %}
                     </li>
                 {% endfor %}
             </ul>
         {% else %}
-            <p>No places saved yet.</p>
+            <p class="muted">No places saved yet. <a href="{% url 'trip_itinerary' trip.id %}">Add places from the Itinerary & Budget page.</a></p>
         {% endif %}
-
-        <h3>Save place or attraction</h3>
-        <p class="muted">Tip: click on the map to auto-fill latitude and longitude.</p>
-        <form method="post">
-            {% csrf_token %}
-            <div class="stack">
-                <div>
-                    <label for="place-search-input"><strong>Search place</strong></label>
-                    <input id="place-search-input" type="text" placeholder="Start typing a place name..." autocomplete="off" />
-                    <div id="place-suggestions" class="card" style="padding: 0.45rem; margin-top: 0.4rem; display: none;">
-                        <div class="muted" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Recommended places</div>
-                        <ul id="place-suggestions-list" style="margin: 0; padding-left: 0; list-style: none;"></ul>
-                    </div>
-                </div>
-                <div class="field-grid">
-                    <div>
-                        <label for="id_place-name"><strong>Name</strong></label>
-                        {{ place_form.name }}
-                    </div>
-                    <div>
-                        <label for="id_place-place_type"><strong>Type</strong></label>
-                        {{ place_form.place_type }}
-                    </div>
-                </div>
-                <div>
-                    <label for="id_place-address"><strong>Address</strong></label>
-                    {{ place_form.address }}
-                </div>
-                <div class="field-grid">
-                    <div>
-                        <label for="id_place-latitude"><strong>Latitude</strong></label>
-                        {{ place_form.latitude }}
-                    </div>
-                    <div>
-                        <label for="id_place-longitude"><strong>Longitude</strong></label>
-                        {{ place_form.longitude }}
-                    </div>
-                </div>
-                <div>
-                    <label for="id_place-notes"><strong>Notes</strong></label>
-                    {{ place_form.notes }}
-                </div>
-            </div>
-            <button type="submit" name="add_place">Save Place</button>
-        </form>
     </div>
 </div>
-
 <div class="card section-anchor section-panel reveal-on-scroll" id="trip-suggestions-section">
     <div class="section-heading">
         <h2>Weather-aware Suggestions</h2>
@@ -170,69 +157,66 @@
     </ul>
 </div>
 
-<div class="card section-anchor section-panel reveal-on-scroll" id="trip-itinerary-section">
-    <div class="section-heading">
-        <h2>Itinerary</h2>
-        <span class="section-kicker">Plan</span>
-    </div>
-    {% if trip.itinerary_items.all %}
-        <ul>
-            {% for item in trip.itinerary_items.all %}
-                <li>
-                    <strong>{{ item.date }}:</strong> {{ item.title }}
-                    {% if item.notes %}<br><span class="muted">{{ item.notes }}</span>{% endif %}
-                    <br><span class="muted">Estimated cost: {{ item.estimated_cost }}</span>
-                </li>
-            {% empty %}
-                <li>No itinerary items yet.</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
-    <h3>Add itinerary item</h3>
-    <form method="post">
-        {% csrf_token %}
-        {{ itinerary_form.as_p }}
-        <button type="submit" name="add_itinerary">Add Item</button>
-    </form>
-</div>
-
 <div class="card section-anchor section-panel reveal-on-scroll" id="trip-route-section">
     <div class="section-heading">
         <h2>Route Planner</h2>
         <span class="section-kicker">Path</span>
     </div>
-    <p class="muted">Choose any two mapped points to draw a simple route line on the map.</p>
-    <div class="field-grid">
-        <div>
-            <label for="route-start"><strong>From</strong></label>
-            <select id="route-start">
-                <option value="">Select a point</option>
-                {% if trip.destination_lat and trip.destination_lng %}
-                    <option value="destination">Trip destination</option>
-                {% endif %}
-                {% for place in trip.places.all %}
-                    <option value="place-{{ place.id }}">{{ place.name }}</option>
-                {% endfor %}
-            </select>
+    <p class="muted">Create routes between any mapped points. Saved routes stay on the map and include direction arrows.</p>
+    <form method="post">
+        {% csrf_token %}
+        {% if route_form.non_field_errors %}
+            <div class="errorlist">{{ route_form.non_field_errors }}</div>
+        {% endif %}
+        <div class="field-grid">
+            <div>
+                <label for="id_route_name"><strong>Route name (optional)</strong></label>
+                {{ route_form.route_name }}
+            </div>
+            <div></div>
+            <div>
+                <label for="id_start_key"><strong>From</strong></label>
+                {{ route_form.start_key }}
+            </div>
+            <div>
+                <label for="id_end_key"><strong>To</strong></label>
+                {{ route_form.end_key }}
+            </div>
         </div>
-        <div>
-            <label for="route-end"><strong>To</strong></label>
-            <select id="route-end">
-                <option value="">Select a point</option>
-                {% if trip.destination_lat and trip.destination_lng %}
-                    <option value="destination">Trip destination</option>
-                {% endif %}
-                {% for place in trip.places.all %}
-                    <option value="place-{{ place.id }}">{{ place.name }}</option>
-                {% endfor %}
-            </select>
+        <div class="toolbar" style="margin-top: 0.75rem;">
+            <button type="submit" name="create_route">Create Route</button>
+            <button type="button" id="preview-route-button" class="button secondary">Preview Route</button>
+            <button type="button" id="clear-route-button" class="button tertiary">Clear Preview</button>
         </div>
-    </div>
-    <div class="toolbar" style="margin-top: 0.75rem;">
-        <button type="button" id="draw-route-button">Draw Route</button>
-        <button type="button" id="clear-route-button" class="button secondary">Clear Route</button>
-    </div>
+    </form>
+
+    {% if route_rows %}
+        <div style="margin-top: 1rem;">
+            <h3>Saved Routes</h3>
+            <ul style="margin: 0;">
+                {% for route_row in route_rows %}
+                    {% with route=route_row.route %}
+                    <li style="padding: 0.7rem 0; border-bottom: 1px solid #e3ece6; display: flex; justify-content: space-between; gap: 0.8rem; align-items: center;">
+                        <div>
+                            <strong>
+                                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 0.4rem; background: {{ route_row.color }};"></span>
+                                {{ route.name }}
+                            </strong>
+                            <div class="muted">{{ route.start_name }} → {{ route.end_name }}</div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <a class="button secondary" href="{% url 'edit_route' trip.id route.id %}">Edit</a>
+                            <a class="button danger" href="{% url 'delete_route' trip.id route.id %}">Delete</a>
+                        </div>
+                    </li>
+                    {% endwith %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p class="muted" style="margin-top: 0.9rem;">No saved routes yet.</p>
+    {% endif %}
+
     <p class="muted" id="route-status" style="margin-bottom: 0;"></p>
 </div>
 
@@ -263,6 +247,7 @@
 </div>
 
 {{ map_points|json_script:"trip-map-points" }}
+{{ routes_data|json_script:"trip-routes-data" }}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -270,9 +255,9 @@
 <script>
     (function () {
         const mapElement = document.getElementById('trip-map');
-        const routeStart = document.getElementById('route-start');
-        const routeEnd = document.getElementById('route-end');
-        const drawRouteButton = document.getElementById('draw-route-button');
+        const routeStart = document.getElementById('id_start_key');
+        const routeEnd = document.getElementById('id_end_key');
+        const previewRouteButton = document.getElementById('preview-route-button');
         const clearRouteButton = document.getElementById('clear-route-button');
         const routeStatus = document.getElementById('route-status');
         const mapStatus = document.getElementById('map-status');
@@ -283,6 +268,12 @@
         const placeAddressInput = document.getElementById('id_place-address');
         const placeLatitudeInput = document.getElementById('id_place-latitude');
         const placeLongitudeInput = document.getElementById('id_place-longitude');
+        const placeVisitDateInput = document.getElementById('id_place-visit_date');
+        const placeReturnDateInput = document.getElementById('id_place-return_date');
+        const placeOneDayCheckbox = document.getElementById('id_place-is_one_day_visit');
+        const addToItineraryCheckbox = document.getElementById('id_place-add_to_itinerary');
+        const itineraryTitleRow = document.getElementById('itinerary-title-row');
+        const itineraryTitleInput = document.getElementById('id_place-itinerary_title');
         const ribbonLinks = Array.from(document.querySelectorAll('#trip-detail-ribbon a[href^="#"]'));
         const revealItems = Array.from(document.querySelectorAll('.reveal-on-scroll'));
 
@@ -363,6 +354,64 @@
             }
         }
 
+        function syncOneDayVisitState() {
+            if (!placeOneDayCheckbox || !placeReturnDateInput) {
+                return;
+            }
+
+            if (placeOneDayCheckbox.checked) {
+                if (placeVisitDateInput && placeVisitDateInput.value) {
+                    placeReturnDateInput.value = placeVisitDateInput.value;
+                }
+                placeReturnDateInput.disabled = true;
+            } else {
+                placeReturnDateInput.disabled = false;
+            }
+        }
+
+        if (placeOneDayCheckbox) {
+            placeOneDayCheckbox.addEventListener('change', syncOneDayVisitState);
+            if (placeVisitDateInput) {
+                placeVisitDateInput.addEventListener('change', syncOneDayVisitState);
+            }
+            syncOneDayVisitState();
+        }
+
+        function syncItineraryTitleField() {
+            if (!addToItineraryCheckbox || !itineraryTitleRow) {
+                return;
+            }
+
+            if (addToItineraryCheckbox.checked) {
+                itineraryTitleRow.classList.add('is-visible');
+                itineraryTitleRow.setAttribute('aria-hidden', 'false');
+                if (itineraryTitleInput) {
+                    itineraryTitleInput.disabled = false;
+                }
+            } else {
+                itineraryTitleRow.classList.remove('is-visible');
+                itineraryTitleRow.setAttribute('aria-hidden', 'true');
+                if (itineraryTitleInput) {
+                    itineraryTitleInput.disabled = true;
+                    itineraryTitleInput.value = '';
+                }
+            }
+        }
+
+        if (addToItineraryCheckbox) {
+            addToItineraryCheckbox.addEventListener('change', syncItineraryTitleField);
+            // Also sync when visit_date changes (auto-check checkbox if date is set)
+            if (placeVisitDateInput) {
+                placeVisitDateInput.addEventListener('change', function() {
+                    if (placeVisitDateInput.value && !addToItineraryCheckbox.checked) {
+                        addToItineraryCheckbox.checked = true;
+                        syncItineraryTitleField();
+                    }
+                });
+            }
+            syncItineraryTitleField();
+        }
+
         const points = JSON.parse(document.getElementById('trip-map-points').textContent || '[]');
         const lookup = new Map(points.map((point) => [point.key, point]));
         const fallbackCenter = points.length ? [points[0].lat, points[0].lng] : [20, 0];
@@ -388,11 +437,56 @@
             mapStatus.textContent = 'Add destination coordinates or saved places to show markers on the map.';
         }
 
-        let routeLayer = null;
+        const savedRouteLayers = [];
+        let previewRouteLayers = [];
         let pickedLocationMarker = null;
         let placeSearchDebounceTimer = null;
         let placeLastQuery = '';
         let placeSuggestionResults = [];
+
+        function computeBearing(startLat, startLng, endLat, endLng) {
+            const toRadians = (value) => value * Math.PI / 180;
+            const toDegrees = (value) => value * 180 / Math.PI;
+            const phi1 = toRadians(startLat);
+            const phi2 = toRadians(endLat);
+            const deltaLambda = toRadians(endLng - startLng);
+
+            const y = Math.sin(deltaLambda) * Math.cos(phi2);
+            const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
+            return (toDegrees(Math.atan2(y, x)) + 360) % 360;
+        }
+
+        function createArrowMarker(startLat, startLng, endLat, endLng, color) {
+            const arrowPositionFactor = 0.82;
+            const markerLat = startLat + ((endLat - startLat) * arrowPositionFactor);
+            const markerLng = startLng + ((endLng - startLng) * arrowPositionFactor);
+            const bearing = computeBearing(startLat, startLng, endLat, endLng);
+
+            return L.marker([markerLat, markerLng], {
+                interactive: false,
+                icon: L.divIcon({
+                    className: 'route-arrow-icon',
+                    html: `<div style="transform: rotate(${bearing}deg); color: ${color}; font-size: 18px; line-height: 1;">➤</div>`,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9],
+                }),
+            });
+        }
+
+        function drawRoute(startLat, startLng, endLat, endLng, options) {
+            const line = L.polyline([
+                [startLat, startLng],
+                [endLat, endLng],
+            ], {
+                color: options.color,
+                weight: options.weight,
+                opacity: options.opacity,
+                dashArray: options.dashArray || null,
+            }).addTo(map);
+
+            const arrow = createArrowMarker(startLat, startLng, endLat, endLng, options.color).addTo(map);
+            return { line, arrow };
+        }
 
         async function fetchPlaceSuggestions(query) {
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(query)}`, {
@@ -513,11 +607,12 @@
             });
         }
 
-        function clearRoute() {
-            if (routeLayer) {
-                map.removeLayer(routeLayer);
-                routeLayer = null;
-            }
+        function clearPreviewRoute() {
+            previewRouteLayers.forEach((layer) => {
+                map.removeLayer(layer.line);
+                map.removeLayer(layer.arrow);
+            });
+            previewRouteLayers = [];
         }
 
         map.on('click', (event) => {
@@ -543,7 +638,18 @@
             routeStatus.textContent = 'Picked map point copied to the place form coordinates.';
         });
 
-        drawRouteButton?.addEventListener('click', () => {
+        const savedRoutes = JSON.parse(document.getElementById('trip-routes-data').textContent || '[]');
+        savedRoutes.forEach((route) => {
+            const routeLayers = drawRoute(route.start_lat, route.start_lng, route.end_lat, route.end_lng, {
+                color: route.color || '#2ca57e',
+                weight: 4,
+                opacity: 0.9,
+            });
+            routeLayers.line.bindPopup(`<strong>${route.name}</strong><br>${route.start_name} → ${route.end_name}`);
+            savedRouteLayers.push(routeLayers);
+        });
+
+        previewRouteButton?.addEventListener('click', () => {
             const startPoint = lookup.get(routeStart.value);
             const endPoint = lookup.get(routeEnd.value);
 
@@ -552,24 +658,22 @@
                 return;
             }
 
-            clearRoute();
-            routeLayer = L.polyline([
-                [startPoint.lat, startPoint.lng],
-                [endPoint.lat, endPoint.lng],
-            ], {
-                color: '#0b6e4f',
+            clearPreviewRoute();
+            const previewLayers = drawRoute(startPoint.lat, startPoint.lng, endPoint.lat, endPoint.lng, {
+                color: '#f2be63',
                 weight: 4,
-                opacity: 0.85,
-                dashArray: '8 8',
-            }).addTo(map);
+                opacity: 0.95,
+                dashArray: '10 6',
+            });
+            previewRouteLayers.push(previewLayers);
 
-            map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
-            routeStatus.textContent = `Route drawn from ${startPoint.name} to ${endPoint.name}.`;
+            map.fitBounds(previewLayers.line.getBounds(), { padding: [30, 30] });
+            routeStatus.textContent = `Preview route from ${startPoint.name} to ${endPoint.name}. Click Create Route to save it.`;
         });
 
         clearRouteButton?.addEventListener('click', () => {
-            clearRoute();
-            routeStatus.textContent = 'Route cleared.';
+            clearPreviewRoute();
+            routeStatus.textContent = 'Route preview cleared.';
         });
     })();
 </script>

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary">
+    <a href="{% url 'trip_itinerary' trip.id %}">Back to Itinerary</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card section-panel">
+    <div class="section-heading">
+        <h2>Edit Place - {{ place.name }}</h2>
+        <span class="section-kicker">{{ trip.destination }}</span>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {% if place_form.non_field_errors %}
+            <div class="errorlist">{{ place_form.non_field_errors }}</div>
+        {% endif %}
+        <div class="stack">
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-name"><strong>Name</strong></label>
+                    {{ place_form.name }}
+                </div>
+                <div>
+                    <label for="id_place-place_type"><strong>Type</strong></label>
+                    {{ place_form.place_type }}
+                </div>
+            </div>
+            <div>
+                <label for="id_place-address"><strong>Address</strong></label>
+                {{ place_form.address }}
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-latitude"><strong>Latitude</strong></label>
+                    {{ place_form.latitude }}
+                </div>
+                <div>
+                    <label for="id_place-longitude"><strong>Longitude</strong></label>
+                    {{ place_form.longitude }}
+                </div>
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-visit_date"><strong>Visit Date</strong></label>
+                    {{ place_form.visit_date }}
+                </div>
+                <div>
+                    <label for="id_place-return_date"><strong>Return Date</strong></label>
+                    {{ place_form.return_date }}
+                </div>
+            </div>
+            <div>
+                <label for="id_place-is_one_day_visit">
+                    {{ place_form.is_one_day_visit }}
+                    <strong>One-day visit</strong>
+                </label>
+                <p class="muted" style="margin: 0.25rem 0 0;">If selected, return date will be set to the same date as visit date.</p>
+            </div>
+            <div>
+                <label for="id_place-add_to_itinerary">
+                    {{ place_form.add_to_itinerary }}
+                    <strong>Add this place to itinerary</strong>
+                </label>
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Auto-enabled when a visit date is set</p>
+            </div>
+            <div>
+                <label for="id_place-notes"><strong>Notes</strong></label>
+                {{ place_form.notes }}
+            </div>
+        </div>
+        <div class="toolbar">
+            <button type="submit">Save Changes</button>
+            <a href="{% url 'trip_itinerary' trip.id %}" class="button secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

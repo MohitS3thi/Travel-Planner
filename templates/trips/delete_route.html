@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card section-panel" style="max-width: 720px; margin: 0 auto;">
+    <div class="section-heading">
+        <h2>Delete Route</h2>
+        <span class="section-kicker">Confirm</span>
+    </div>
+
+    <p>Delete route <strong>{{ route.name }}</strong>?</p>
+    <p class="muted">{{ route.start_name }} to {{ route.end_name }}</p>
+
+    <form method="post" style="margin-top: 1rem;">
+        {% csrf_token %}
+        <div class="toolbar">
+            <button type="submit" class="button danger">Delete Route</button>
+            <a class="button tertiary" href="{% url 'trip_detail' trip.id %}#trip-route-section">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

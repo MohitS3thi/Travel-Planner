@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block nav_trip_actions %}
+<div class="ribbon-group">
+    <a href="{% url 'trip_detail' trip.id %}" style="font-weight: 600;">Trip Overview</a>
+    <a href="{% url 'trip_itinerary' trip.id %}" style="font-weight: 600;">Itinerary & Budget</a>
+    <a href="{% url 'trip_weather' trip.id %}" class="active" style="font-weight: 600;">Weather</a>
+</div>
+{% endblock %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary" id="trip-weather-ribbon">
+    <a href="#weather-intelligence-section">Intelligence</a>
+    <a href="#weather-suggestions-section">Suggestions</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card section-panel" id="weather-intelligence-section">
+    <div class="section-heading">
+        <h2>{{ trip.destination }} Weather Intelligence</h2>
+        <span class="section-kicker">Current + 5-Day</span>
+    </div>
+
+    {% if weather %}
+        {% if weather.warning %}
+            <div class="tag {% if weather.warning.level == 'high' %}warn{% else %}neutral{% endif %}" style="margin-bottom: 0.8rem;">
+                Warning: {{ weather.warning.message }}
+            </div>
+        {% endif %}
+
+        <div class="stats-strip" style="margin-bottom: 0.8rem;">
+            <div class="stat-pill">
+                <strong>{{ weather.current.temperature }} deg C</strong>
+                <span>Current Temperature</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ weather.current.weather_label }}</strong>
+                <span>Condition</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ weather.current.apparent_temperature }} deg C</strong>
+                <span>Feels Like</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ weather.current.wind_speed }} km/h</strong>
+                <span>Wind Speed</span>
+            </div>
+        </div>
+
+        {% if weather.recommendation %}
+            <p><strong>Smart suggestion:</strong> {{ weather.recommendation }}</p>
+        {% endif %}
+
+        {% if weather.trip_forecast_notice %}
+            <p class="muted"><strong>Forecast availability:</strong> {{ weather.trip_forecast_notice }}</p>
+            {% if weather.trip_forecast_available_in_days and weather.trip_forecast_available_in_days > 0 %}
+                <p>
+                    <span class="tag neutral">Forecast window opens in {{ weather.trip_forecast_available_in_days }} day{{ weather.trip_forecast_available_in_days|pluralize }}</span>
+                </p>
+            {% endif %}
+        {% endif %}
+
+        <h3>Forecast From Trip Start Date</h3>
+        {% if weather.trip_forecast %}
+            <div class="stack">
+                {% for day in weather.trip_forecast %}
+                    <div class="card" style="padding: 0.8rem 0.9rem;">
+                        <strong>{{ day.date }}</strong>
+                        <div class="muted">{{ day.weather_label }}</div>
+                        <div class="chip-row" style="margin-top: 0.45rem;">
+                            <span class="chip">{{ day.temp_min }} deg C to {{ day.temp_max }} deg C</span>
+                            <span class="chip">Rain chance: {{ day.precipitation_probability }}%</span>
+                            <span class="chip">Rain: {{ day.precipitation_sum }} mm</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">Forecast for your trip dates is not available yet.</p>
+        {% endif %}
+    {% else %}
+        <p class="muted">Weather is unavailable right now. Add destination coordinates to the trip and try again.</p>
+    {% endif %}
+</div>
+
+<div class="card section-panel" id="weather-suggestions-section" style="margin-top: 1rem;">
+    <div class="section-heading">
+        <h2>Planning Suggestions</h2>
+        <span class="section-kicker">Weather-Aware</span>
+    </div>
+    <ul>
+        {% for tip in suggestions.tips %}
+            <li>{{ tip }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

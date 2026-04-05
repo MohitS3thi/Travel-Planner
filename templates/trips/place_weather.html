@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary" id="place-weather-ribbon">
+    <a href="{% url 'trip_detail' trip.id %}#trip-places-section">Back To Saved Places</a>
+    <a href="{% url 'trip_weather' trip.id %}">Trip Weather Intelligence</a>
+    <a href="{% url 'place_weather' trip.id place.id %}" class="active">Place Forecast</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card section-panel">
+    <div class="section-heading">
+        <h2>{{ place.name }} Forecast</h2>
+        <span class="section-kicker">{{ trip.destination }}</span>
+    </div>
+
+    <p class="muted">Choose a date within your trip window ({{ trip.start_date }} to {{ trip.end_date }}) to see the forecast for this place.</p>
+
+    <form method="get" class="toolbar" style="margin-bottom: 1rem;">
+        <div>
+            <label for="place-weather-date"><strong>Trip Date</strong></label>
+            <input id="place-weather-date" type="date" name="date" value="{{ selected_date_text }}" min="{{ trip.start_date|date:'Y-m-d' }}" max="{{ trip.end_date|date:'Y-m-d' }}" />
+        </div>
+        <div style="flex: 0 0 auto; align-self: end;">
+            <button type="submit">View Forecast</button>
+        </div>
+    </form>
+
+    {% if place_weather.notice %}
+        <p class="muted"><strong>Notice:</strong> {{ place_weather.notice }}</p>
+        {% if place_weather.available_in_days and place_weather.available_in_days > 0 %}
+            <p>
+                <span class="tag neutral">Forecast window opens in {{ place_weather.available_in_days }} day{{ place_weather.available_in_days|pluralize }}</span>
+            </p>
+        {% endif %}
+    {% endif %}
+
+    {% if place_weather.forecast_day %}
+        <div class="stats-strip" style="margin-top: 0.85rem;">
+            <div class="stat-pill">
+                <strong>{{ place_weather.forecast_day.date }}</strong>
+                <span>Date</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ place_weather.forecast_day.weather_label }}</strong>
+                <span>Condition</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ place_weather.forecast_day.temp_min }} deg C to {{ place_weather.forecast_day.temp_max }} deg C</strong>
+                <span>Temperature</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ place_weather.forecast_day.precipitation_probability }}%</strong>
+                <span>Rain Chance</span>
+            </div>
+            <div class="stat-pill">
+                <strong>{{ place_weather.forecast_day.precipitation_sum }} mm</strong>
+                <span>Rain Volume</span>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

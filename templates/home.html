@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero-banner">
+    <h1 style="margin: 0;">Plan Better Trips With Weather-Aware Intelligence</h1>
+    <p class="muted">Create itineraries, map saved places, and get smart weather-based suggestions for every destination.</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>Build Your Trip</h2>
+        <p class="muted">Set destination, dates, budget, interests, and track planning items in one place.</p>
+        <a class="button" href="{% url 'signup' %}">Create Account</a>
+    </div>
+    <div class="card">
+        <h2>Already Have An Account?</h2>
+        <p class="muted">Sign in to continue managing your trip plans, places, routes, and checklist.</p>
+        <a class="button secondary" href="{% url 'login' %}">Login</a>
+    </div>
+</div>
+{% endblock %}
