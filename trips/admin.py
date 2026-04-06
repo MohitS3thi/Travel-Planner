@@ -11,7 +11,7 @@ class TripAdmin(admin.ModelAdmin):
 
 @admin.register(ItineraryItem)
 class ItineraryItemAdmin(admin.ModelAdmin):
-	list_display = ('title', 'trip', 'date', 'estimated_cost')
+	list_display = ('title', 'trip', 'date', 'start_time', 'end_time', 'estimated_cost')
 	list_filter = ('date',)
 
 

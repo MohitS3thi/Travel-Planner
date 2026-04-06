@@ -5,6 +5,7 @@ from django.test import TestCase
 
 from .forms import PlaceForm
 from .models import Trip
+from .views import _save_ai_plan_to_itinerary
 from .weather import build_weather_recommendation
 from .weather import _build_specific_date_availability
 from .weather import _build_trip_forecast
@@ -213,3 +214,42 @@ class PlaceWeatherAvailabilityTests(TestCase):
 
 		self.assertTrue(result['can_fetch'])
 		self.assertIsNone(result['notice'])
+
+
+class AiItinerarySaveTests(TestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(username='aiuser', password='pass12345')
+		self.trip = Trip.objects.create(
+			owner=self.user,
+			destination='Tokyo',
+			start_date=date(2026, 7, 1),
+			end_date=date(2026, 7, 3),
+			budget='1500.00',
+			interests='food, adventure',
+		)
+
+	def test_save_ai_plan_creates_day_items(self):
+		plan = {
+			'day_wise_itinerary': [
+				{
+					'day_number': 1,
+					'morning': 'Tsukiji market',
+					'afternoon': 'Senso-ji and Asakusa walk',
+					'evening': 'Dinner in Shibuya',
+					'budget': {'total': '300.00'},
+				},
+				{
+					'day_number': 2,
+					'morning': 'TeamLab morning slot',
+					'afternoon': 'Odaiba waterfront',
+					'evening': 'Ramen alley',
+					'budget': {'total': '350.00'},
+				},
+			],
+		}
+
+		created_count = _save_ai_plan_to_itinerary(self.trip, plan)
+
+		self.assertEqual(created_count, 2)
+		self.assertEqual(self.trip.itinerary_items.count(), 2)
+		self.assertEqual(self.trip.itinerary_items.first().title, 'AI Plan - Tokyo - Day 1')

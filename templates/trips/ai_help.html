@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block nav_secondary %}{% endblock %}
+
+{% block content %}
+<div class="trip-shell">
+    {% include 'trips/_trip_left_ribbon.html' with active_page='ai_help' %}
+    <div class="trip-main stack">
+        <div class="section-ribbon" id="ai-help-ribbon">
+            <a href="#ai-inputs" class="active">Inputs</a>
+            <a href="#ai-output">Generated Plan</a>
+        </div>
+
+        <div class="card section-panel" id="ai-inputs">
+            <div class="section-heading">
+                <h2>AI Trip Assistant</h2>
+                <span class="section-kicker">Personalized Planner</span>
+            </div>
+            <p class="muted" style="margin-top: 0;">Use destination, selected trip dates, budget, style, weather, preferred times, and your saved places to generate a day-wise itinerary.</p>
+
+            <form method="post" class="stack">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="errorlist">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="field-grid">
+                    <div>
+                        <label for="id_destination"><strong>Destination</strong></label>
+                        {{ form.destination }}
+                    </div>
+                    <div>
+                        <label for="id_budget"><strong>Budget</strong></label>
+                        {{ form.budget }}
+                    </div>
+                </div>
+
+                <div>
+                    <label><strong>Select trip date range for AI itinerary</strong></label>
+                    <div class="field-grid" style="margin-top: 0.45rem;">
+                        <div>
+                            <label for="id_generate_from_date"><strong>From</strong></label>
+                            {{ form.generate_from_date }}
+                        </div>
+                        <div>
+                            <label for="id_generate_to_date"><strong>To</strong></label>
+                            {{ form.generate_to_date }}
+                        </div>
+                    </div>
+                    {% if form.generate_from_date.errors %}
+                        <div class="errorlist">{{ form.generate_from_date.errors }}</div>
+                    {% endif %}
+                    {% if form.generate_to_date.errors %}
+                        <div class="errorlist">{{ form.generate_to_date.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="field-grid">
+                    <div>
+                        <label for="id_travel_style"><strong>Travel style</strong></label>
+                        {{ form.travel_style }}
+                    </div>
+                    <div>
+                        <label for="id_custom_travel_style"><strong>Custom style (optional)</strong></label>
+                        {{ form.custom_travel_style }}
+                    </div>
+                </div>
+
+                <div>
+                    <label for="id_use_auto_weather" style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                        {{ form.use_auto_weather }}
+                        <strong>Use current trip weather automatically</strong>
+                    </label>
+                    <p class="muted" style="margin: 0.25rem 0 0;">Keeps weather summary in sync with the latest weather intelligence for this trip.</p>
+                </div>
+
+                <div>
+                    <label for="id_weather_summary"><strong>Weather summary</strong></label>
+                    {{ form.weather_summary }}
+                </div>
+
+                <div class="field-grid">
+                    <div>
+                        <label for="id_preferred_start_time"><strong>Preferred start time</strong></label>
+                        {{ form.preferred_start_time }}
+                    </div>
+                    <div>
+                        <label for="id_preferred_end_time"><strong>Preferred end time</strong></label>
+                        {{ form.preferred_end_time }}
+                    </div>
+                </div>
+
+                <div class="toolbar">
+                    <button type="submit">Generate Day-wise Itinerary</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card section-panel" id="ai-output">
+            <div class="section-heading">
+                <h2>AI Output</h2>
+                <span class="section-kicker">Daily Plan + Budget</span>
+            </div>
+
+            {% if generated_plan %}
+                <p>
+                    <span class="tag {% if ai_source == 'live-model' %}success{% else %}warn{% endif %}">
+                        {% if ai_source == 'live-model' %}Live model{% else %}Fallback planner{% endif %}
+                    </span>
+                    {% if ai_model %}
+                        <span class="tag neutral" style="margin-left: 0.35rem;">{{ ai_model }}</span>
+                    {% endif %}
+                </p>
+                {% if ai_source != 'live-model' %}
+                    <p class="muted">
+                        Live model unavailable. {% if ai_fallback_reason %}Reason: {{ ai_fallback_reason }}{% endif %}
+                    </p>
+                    <p class="muted" style="margin-top: -0.35rem;">
+                        Tip: set OPENAI_API_KEY in the same terminal that runs Django, or create a project .env file with OPENAI_API_KEY=your_key.
+                    </p>
+                {% endif %}
+                <p><strong>Destination:</strong> {{ generated_plan.summary.destination }}</p>
+                <p><strong>Travel style:</strong> {{ generated_plan.summary.travel_style|title }}</p>
+                <p><strong>Weather guidance:</strong> {{ generated_plan.summary.weather_guidance }}</p>
+                <p class="muted">Already committed in saved itinerary items: &#8377;{{ generated_plan.committed_cost }}</p>
+                <p class="muted">Budget used for AI split: &#8377;{{ generated_plan.remaining_planning_budget }}</p>
+
+                <h3 style="margin-top: 1.2rem;">Day-wise itinerary</h3>
+                <div class="stack">
+                    {% for day in generated_plan.day_wise_itinerary %}
+                        <div class="card" style="padding: 1rem; border: 1px solid #38536a;">
+                            <strong>Day {{ day.day_number }}</strong>
+                            {% if day.trip_date %}
+                                <p class="muted" style="margin: 0.25rem 0 0;">Date: {{ day.trip_date }}</p>
+                            {% endif %}
+                            <ul style="margin-top: 0.55rem; margin-bottom: 0;">
+                                <li><strong>Morning ({{ day.morning_window }}):</strong> {{ day.morning }}</li>
+                                <li><strong>Afternoon ({{ day.afternoon_window }}):</strong> {{ day.afternoon }}</li>
+                                <li><strong>Evening ({{ day.evening_window }}):</strong> {{ day.evening }}</li>
+                                <li><strong>Rough day budget:</strong> &#8377;{{ day.budget.total }} (M: &#8377;{{ day.budget.morning }}, A: &#8377;{{ day.budget.afternoon }}, E: &#8377;{{ day.budget.evening }})</li>
+                            </ul>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <h3 style="margin-top: 1.2rem;">Rough budget split</h3>
+                <div class="stats-strip">
+                    <div class="stat-pill">
+                        <strong>&#8377;{{ generated_plan.budget_split.stay.amount }}</strong>
+                        <span>Stay ({{ generated_plan.budget_split.stay.percentage }}%)</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>&#8377;{{ generated_plan.budget_split.food.amount }}</strong>
+                        <span>Food ({{ generated_plan.budget_split.food.percentage }}%)</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>&#8377;{{ generated_plan.budget_split.activities.amount }}</strong>
+                        <span>Activities ({{ generated_plan.budget_split.activities.percentage }}%)</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>&#8377;{{ generated_plan.budget_split.transport.amount }}</strong>
+                        <span>Transport ({{ generated_plan.budget_split.transport.percentage }}%)</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>&#8377;{{ generated_plan.budget_split.buffer.amount }}</strong>
+                        <span>Buffer ({{ generated_plan.budget_split.buffer.percentage }}%)</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 1.2rem;">Packing and preparation suggestions</h3>
+                <ul>
+                    {% for tip in generated_plan.packing_suggestions %}
+                        <li>{{ tip }}</li>
+                    {% endfor %}
+                </ul>
+
+                <form method="post" style="margin-top: 1rem;">
+                    {% csrf_token %}
+                    <button type="submit" name="save_ai_plan">Add AI Output to Itinerary</button>
+                    <p class="muted" style="margin: 0.4rem 0 0;">This creates one itinerary item per AI-generated day and sends you to the Itinerary & Budget tab.</p>
+                </form>
+            {% else %}
+                <div class="empty-state">
+                    <p style="margin-top: 0;"><strong>Generate your personalized plan</strong></p>
+                    <p class="muted">Fill in the inputs and submit to get day-wise suggestions, budget split, and preparation tips.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'trips/js/ai_help.js' %}"></script>
+{% endblock %}
+
+

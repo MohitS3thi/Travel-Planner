@@ -60,11 +60,7 @@ staticfiles/
 *.env
 
 # Virtual environments
-.venv/
-venv/
-env/
-env2/
-ENV/
+planner/
 
 # Jupyter
 .ipynb_checkpoints/

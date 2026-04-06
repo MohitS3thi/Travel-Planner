@@ -1,8 +1,26 @@
 from django import forms
+from datetime import timedelta
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
 from .models import ChecklistItem, ItineraryItem, Place, Trip
+
+
+def _find_overlapping_itinerary_item(trip, target_date, start_time, end_time, exclude_item_id=None):
+    """Return first itinerary item that overlaps with the provided time window."""
+    queryset = ItineraryItem.objects.filter(
+        trip=trip,
+        date=target_date,
+        start_time__isnull=False,
+        end_time__isnull=False,
+        start_time__lt=end_time,
+        end_time__gt=start_time,
+    ).order_by('start_time', 'created_at')
+
+    if exclude_item_id:
+        queryset = queryset.exclude(id=exclude_item_id)
+
+    return queryset.first()
 
 
 class SignUpForm(UserCreationForm):
@@ -56,13 +74,44 @@ class TripForm(forms.ModelForm):
 
 
 class ItineraryItemForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        self.trip = kwargs.pop('trip', None)
+        super().__init__(*args, **kwargs)
+
     class Meta:
         model = ItineraryItem
-        fields = ('date', 'title', 'notes', 'estimated_cost')
+        fields = ('date', 'start_time', 'end_time', 'title', 'notes', 'estimated_cost')
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
             'notes': forms.Textarea(attrs={'rows': 2}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        target_date = cleaned_data.get('date')
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+
+        if start_time and end_time and end_time <= start_time:
+            raise forms.ValidationError('End time must be later than start time.')
+
+        if self.trip and target_date and start_time and end_time:
+            overlap_item = _find_overlapping_itinerary_item(
+                trip=self.trip,
+                target_date=target_date,
+                start_time=start_time,
+                end_time=end_time,
+                exclude_item_id=self.instance.id if self.instance and self.instance.pk else None,
+            )
+            if overlap_item:
+                raise forms.ValidationError(
+                    f'This time is already being used for "{overlap_item.title}" '
+                    f'({overlap_item.start_time.strftime("%H:%M")} - {overlap_item.end_time.strftime("%H:%M")}).'
+                )
+
+        return cleaned_data
 
 
 class ChecklistItemForm(forms.ModelForm):
@@ -74,6 +123,15 @@ class ChecklistItemForm(forms.ModelForm):
 class PlaceForm(forms.ModelForm):
     add_to_itinerary = forms.BooleanField(required=False)
     itinerary_title = forms.CharField(max_length=150, required=False)
+    itinerary_start_time = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'type': 'time'}))
+    itinerary_end_time = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'type': 'time'}))
+    itinerary_estimated_cost = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        initial=0,
+    )
 
     def __init__(self, *args, **kwargs):
         self.trip = kwargs.pop('trip', None)
@@ -109,6 +167,9 @@ class PlaceForm(forms.ModelForm):
             'is_one_day_visit',
             'add_to_itinerary',
             'itinerary_title',
+            'itinerary_start_time',
+            'itinerary_end_time',
+            'itinerary_estimated_cost',
             'notes',
         )
         widgets = {
@@ -147,6 +208,8 @@ class PlaceForm(forms.ModelForm):
 
         add_to_itinerary = cleaned_data.get('add_to_itinerary')
         itinerary_title = (cleaned_data.get('itinerary_title') or '').strip()
+        itinerary_start_time = cleaned_data.get('itinerary_start_time')
+        itinerary_end_time = cleaned_data.get('itinerary_end_time')
         
         # Auto-enable itinerary addition if visit_date exists
         if visit_date and not add_to_itinerary:
@@ -159,6 +222,27 @@ class PlaceForm(forms.ModelForm):
         if add_to_itinerary and not itinerary_title:
             place_name = (cleaned_data.get('name') or '').strip()
             cleaned_data['itinerary_title'] = f'Visit {place_name}' if place_name else 'Visit saved place'
+
+        if add_to_itinerary and itinerary_start_time and itinerary_end_time and itinerary_end_time <= itinerary_start_time:
+            raise forms.ValidationError('Itinerary end time must be later than itinerary start time.')
+
+        if self.trip and add_to_itinerary and visit_date and itinerary_start_time and itinerary_end_time:
+            overlap_item = _find_overlapping_itinerary_item(
+                trip=self.trip,
+                target_date=visit_date,
+                start_time=itinerary_start_time,
+                end_time=itinerary_end_time,
+            )
+            if overlap_item:
+                place_name = (cleaned_data.get('name') or 'this location').strip()
+                raise forms.ValidationError(
+                    f'This time is already being used for "{overlap_item.title}" activity on {place_name} '
+                    f'({overlap_item.start_time.strftime("%H:%M")} - {overlap_item.end_time.strftime("%H:%M")}).'
+                )
+
+        # Keep budget optional but normalized when adding to itinerary.
+        if add_to_itinerary and cleaned_data.get('itinerary_estimated_cost') is None:
+            cleaned_data['itinerary_estimated_cost'] = 0
 
         return cleaned_data
 
@@ -178,4 +262,83 @@ class TripRouteForm(forms.Form):
         cleaned_data = super().clean()
         if cleaned_data.get('start_key') == cleaned_data.get('end_key'):
             raise forms.ValidationError('Start and end points must be different.')
+        return cleaned_data
+
+
+class AIItineraryHelpForm(forms.Form):
+    TRAVEL_STYLE_CHOICES = [
+        ('solo', 'Solo'),
+        ('family', 'Family'),
+        ('adventure', 'Adventure'),
+        ('food', 'Food'),
+        ('custom', 'Custom'),
+    ]
+
+    destination = forms.CharField(max_length=120)
+    generate_from_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    generate_to_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    budget = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+    travel_style = forms.ChoiceField(choices=TRAVEL_STYLE_CHOICES)
+    custom_travel_style = forms.CharField(max_length=80, required=False)
+    use_auto_weather = forms.BooleanField(required=False, initial=True)
+    weather_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}))
+    preferred_start_time = forms.TimeField(widget=forms.TimeInput(attrs={'type': 'time'}))
+    preferred_end_time = forms.TimeField(widget=forms.TimeInput(attrs={'type': 'time'}))
+
+    def __init__(self, *args, **kwargs):
+        self.trip = kwargs.pop('trip', None)
+        super().__init__(*args, **kwargs)
+
+        if self.trip and self.trip.start_date and self.trip.end_date and self.trip.start_date <= self.trip.end_date:
+            min_date = self.trip.start_date.isoformat()
+            max_date = self.trip.end_date.isoformat()
+            self.fields['generate_from_date'].widget.attrs.update({'min': min_date, 'max': max_date})
+            self.fields['generate_to_date'].widget.attrs.update({'min': min_date, 'max': max_date})
+
+            if not self.is_bound:
+                if not self.initial.get('generate_from_date'):
+                    self.initial['generate_from_date'] = self.trip.start_date
+                if not self.initial.get('generate_to_date'):
+                    self.initial['generate_to_date'] = self.trip.end_date
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get('preferred_start_time')
+        end_time = cleaned_data.get('preferred_end_time')
+        travel_style = cleaned_data.get('travel_style')
+        custom_style = (cleaned_data.get('custom_travel_style') or '').strip()
+        generate_from_date = cleaned_data.get('generate_from_date')
+        generate_to_date = cleaned_data.get('generate_to_date')
+
+        if not generate_from_date or not generate_to_date:
+            raise forms.ValidationError('Select a valid date range for itinerary generation.')
+
+        if generate_to_date < generate_from_date:
+            raise forms.ValidationError('Generate to date must be on or after generate from date.')
+
+        if self.trip and self.trip.start_date and self.trip.end_date:
+            if generate_from_date < self.trip.start_date or generate_from_date > self.trip.end_date:
+                raise forms.ValidationError('Generate from date must be within the trip range.')
+            if generate_to_date < self.trip.start_date or generate_to_date > self.trip.end_date:
+                raise forms.ValidationError('Generate to date must be within the trip range.')
+
+        selected_dates = []
+        current = generate_from_date
+        while current <= generate_to_date:
+            selected_dates.append(current.isoformat())
+            current += timedelta(days=1)
+
+        cleaned_data['selected_trip_dates'] = selected_dates
+
+        if start_time and end_time and end_time <= start_time:
+            raise forms.ValidationError('Preferred end time must be later than preferred start time.')
+
+        if travel_style == 'custom' and not custom_style:
+            raise forms.ValidationError('Add a custom travel style when selecting Custom.')
+
+        if custom_style:
+            cleaned_data['travel_style_text'] = custom_style
+        else:
+            cleaned_data['travel_style_text'] = travel_style
+
         return cleaned_data

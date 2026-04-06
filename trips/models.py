@@ -68,13 +68,15 @@ class Place(models.Model):
 class ItineraryItem(models.Model):
 	trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='itinerary_items')
 	date = models.DateField()
+	start_time = models.TimeField(null=True, blank=True)
+	end_time = models.TimeField(null=True, blank=True)
 	title = models.CharField(max_length=150)
 	notes = models.TextField(blank=True)
 	estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
-		ordering = ['date', 'created_at']
+		ordering = ['date', 'start_time', 'created_at']
 
 	def __str__(self):
 		return f'{self.title} on {self.date}'
