@@ -23,6 +23,16 @@ class ChecklistItemAdmin(admin.ModelAdmin):
 
 @admin.register(Place)
 class PlaceAdmin(admin.ModelAdmin):
-	list_display = ('name', 'trip', 'place_type', 'latitude', 'longitude', 'created_at')
+	list_display = (
+		'name',
+		'trip',
+		'place_type',
+		'visit_date',
+		'return_date',
+		'is_one_day_visit',
+		'latitude',
+		'longitude',
+		'created_at',
+	)
 	list_filter = ('place_type',)
 	search_fields = ('name', 'address', 'trip__destination')

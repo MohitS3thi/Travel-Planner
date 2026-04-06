@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card section-panel" style="max-width: 760px; margin: 0 auto;">
+    <div class="section-heading">
+        <h2>Edit Route</h2>
+        <span class="section-kicker">{{ trip.destination }}</span>
+    </div>
+
+    <p class="muted">Update route name and points. Direction arrow will update automatically on the map.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="errorlist">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="stack">
+            <div>
+                <label for="id_route_name"><strong>Route name (optional)</strong></label>
+                {{ form.route_name }}
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_start_key"><strong>From</strong></label>
+                    {{ form.start_key }}
+                </div>
+                <div>
+                    <label for="id_end_key"><strong>To</strong></label>
+                    {{ form.end_key }}
+                </div>
+            </div>
+        </div>
+
+        <div class="toolbar" style="margin-top: 1rem;">
+            <button type="submit">Save Changes</button>
+            <a class="button tertiary" href="{% url 'trip_detail' trip.id %}#trip-route-section">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

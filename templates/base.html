@@ -76,7 +76,7 @@
 
         .main-ribbon .ribbon-group {
             display: flex;
-            gap: 0.45rem;
+            gap: 1rem;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -170,6 +170,14 @@
             outline: none;
             border-color: #66c5a4;
             box-shadow: 0 0 0 3px rgba(52, 161, 126, 0.2);
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            margin-right: 0.45rem;
+            accent-color: var(--accent);
+            transform: translateY(1px);
         }
 
         .grid {
@@ -284,6 +292,51 @@
             color: #ffffff;
             border-color: rgba(9, 79, 57, 0.55);
             box-shadow: 0 8px 16px rgba(11, 76, 57, 0.22);
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"] {
+            text-decoration: none;
+            color: var(--accent);
+            font-weight: 600;
+            padding: 0.45rem 0.8rem;
+            border: none;
+            background: none;
+            font-size: 0.95rem;
+            position: relative;
+            transition: color 140ms ease;
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"]::after {
+            content: '';
+            position: absolute;
+            right: -0.3rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 1px;
+            height: 1.2rem;
+            background: linear-gradient(180deg, transparent, #3a576d 30%, #3a576d 70%, transparent);
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"]:last-child::after {
+            display: none;
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"]:hover {
+            color: #66c5a4;
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"].active {
+            background: linear-gradient(160deg, var(--accent), var(--accent-3));
+            color: #ffffff;
+            border: 1px solid rgba(22, 131, 101, 0.52);
+            border-radius: 8px;
+            padding: 0.45rem 0.6rem;
+            box-shadow: 0 8px 16px rgba(11, 76, 57, 0.22);
+            font-weight: 700;
+        }
+
+        .main-ribbon .ribbon-group a[style*="font-weight: 600"].active::after {
+            background: transparent;
         }
 
         .section-anchor {
@@ -421,8 +474,9 @@
     <div class="container">
         <nav class="main-ribbon">
             <div class="ribbon-group">
-                <a href="{% url 'trip_list' %}"><strong>Travel Planner</strong></a>
+                <a href="{% url 'home' %}" style="font-size: 1.4rem; font-weight: 700; border: 2px solid var(--accent); padding: 0.5rem 0.8rem; border-radius: 8px;"><strong>Travel Planner</strong></a>
             </div>
+            {% block nav_trip_actions %}{% endblock %}
             <div class="ribbon-group">
                 {% if user.is_authenticated %}
                     <span class="muted">Signed in as {{ user.username }}</span>

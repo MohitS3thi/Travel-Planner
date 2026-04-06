@@ -1,0 +1,673 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    .budget-card {
+        background: linear-gradient(135deg, #1a2332 0%, #212d3a 100%);
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.2rem;
+        border: 1px solid #374557;
+    }
+
+    .budget-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1.2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .budget-stat {
+        text-align: center;
+        padding: 1.2rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .budget-stat strong {
+        display: block;
+        font-size: 1.4rem;
+        color: var(--accent);
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+    }
+
+    .budget-stat span {
+        display: block;
+        font-size: 0.85rem;
+        color: #a8b4c0;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 28px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), #5ab57a);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 0.8rem;
+        color: white;
+        font-weight: 600;
+        font-size: 0.75rem;
+        transition: width 0.3s ease;
+        box-shadow: 0 0 15px rgba(74, 157, 111, 0.3);
+    }
+
+    .itinerary-item {
+        display: grid;
+        grid-template-columns: 100px 1fr 180px auto;
+        gap: 1.2rem;
+        padding: 1.2rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.03);
+        transition: all 0.2s ease;
+    }
+
+    .itinerary-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .item-date {
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 1rem;
+        text-align: center;
+        padding: 0.6rem;
+        background: rgba(74, 157, 111, 0.1);
+        border-radius: 6px;
+    }
+
+    .item-details h3 {
+        margin: 0 0 0.3rem 0;
+        font-size: 1rem;
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    .item-details p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #a8b4c0;
+    }
+
+    .item-cost {
+        text-align: right;
+    }
+
+    .item-cost-amount {
+        display: block;
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--accent);
+    }
+
+    .item-cost-pct {
+        display: block;
+        font-size: 0.75rem;
+        color: #7a8693;
+        margin-top: 0.2rem;
+    }
+
+    .mini-bar {
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        margin-top: 0.4rem;
+        overflow: hidden;
+    }
+
+    .mini-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        box-shadow: 0 0 10px rgba(74, 157, 111, 0.4);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.5rem;
+        color: #7a8693;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+    }
+
+    .empty-state p {
+        margin: 1rem 0 0 0;
+    }
+
+    .collapsible-row {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transform: translateY(-4px);
+        transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
+    }
+
+    .collapsible-row.is-visible {
+        max-height: 140px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .map-shell {
+        position: relative;
+        width: 100%;
+        margin-bottom: 1rem;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .map-canvas {
+        width: 100%;
+        height: 400px;
+        background: #1a1a1a;
+    }
+
+    .toggle-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--accent);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .toggle-btn:hover {
+        background: rgba(74, 157, 111, 0.1);
+        border-color: var(--accent);
+    }
+
+    .places-container {
+        max-height: 2000px;
+        opacity: 1;
+        overflow: hidden;
+        transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease;
+        margin-bottom: 1.2rem;
+    }
+
+    .places-container.collapsed {
+        max-height: 0;
+        opacity: 0;
+        margin-bottom: 0;
+    }
+
+    .toggle-icon {
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }
+
+    .places-container.collapsed .toggle-icon {
+        transform: rotate(-90deg);
+    }
+
+    @media (max-width: 768px) {
+        .budget-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .itinerary-item {
+            grid-template-columns: 1fr;
+            gap: 0.6rem;
+        }
+
+        .item-cost {
+            text-align: left;
+        }
+
+        .map-canvas {
+            height: 300px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block nav_trip_actions %}
+<div class="ribbon-group">
+    <a href="{% url 'trip_detail' trip.id %}" style="font-weight: 600;">Trip Overview</a>
+    <a href="{% url 'trip_itinerary' trip.id %}" class="active" style="font-weight: 600;">Itinerary & Budget</a>
+    <a href="{% url 'trip_weather' trip.id %}" style="font-weight: 600;">Weather</a>
+</div>
+{% endblock %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary" id="trip-itinerary-ribbon">
+    <a href="#itinerary-budget-section">Budget</a>
+    <a href="#itinerary-activities-section">Activities</a>
+    <a href="#itinerary-places-section">Places & Map</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card section-panel" id="itinerary-budget-section">
+    <div class="section-heading">
+        <h2>{{ trip.destination }} - Itinerary & Budget</h2>
+        <span class="section-kicker">{{ trip.start_date }} to {{ trip.end_date }}</span>
+    </div>
+
+    <div class="budget-card">
+        <div class="budget-stats">
+            <div class="budget-stat">
+                <strong>₹{{ trip.budget|floatformat:2 }}</strong>
+                <span>Total Budget</span>
+            </div>
+            <div class="budget-stat">
+                <strong>₹{{ total_spent|floatformat:2 }}</strong>
+                <span>Allocated</span>
+            </div>
+            <div class="budget-stat">
+                <strong class="{% if remaining_budget < 0 %}warn{% endif %}">₹{{ remaining_budget|floatformat:2 }}</strong>
+                <span>Remaining</span>
+            </div>
+        </div>
+
+        <div>
+            <strong>Budget Allocation</strong>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ budget_percentage|floatformat:1 }}%">
+                    {% if budget_percentage %}{{ budget_percentage|floatformat:0 }}%{% endif %}
+                </div>
+            </div>
+            <p class="muted" style="margin: 0; font-size: 0.85rem;">
+                {% if budget_percentage > 100 %}
+                    <span class="tag warn">Over budget by ₹{{ over_budget_amount|floatformat:2 }}</span>
+                {% elif budget_percentage > 80 %}
+                    <span class="tag neutral">80% allocated - budget getting tight</span>
+                {% elif budget_percentage > 0 %}
+                    <span class="tag neutral">{{ budget_percentage|floatformat:0 }}% of budget allocated</span>
+                {% else %}
+                    <span class="tag">No costs allocated yet</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="card section-panel" id="itinerary-activities-section" style="margin-top: 1.2rem;">
+    <div class="section-heading">
+        <h2>Planned Activities</h2>
+        <span class="section-kicker">{{ budget_items|length }} item{{ budget_items|length|pluralize }}</span>
+    </div>
+
+    {% if budget_items %}
+        <div style="display: flex; flex-direction: column;">
+            {% for item_dict in budget_items %}
+                {% with item=item_dict.item percentage=item_dict.percentage capped_percentage=item_dict.capped_percentage %}
+                    <div class="itinerary-item">
+                        <div class="item-date">{{ item.date }}</div>
+                        <div class="item-details">
+                            <h3>{{ item.title }}</h3>
+                            {% if item.notes %}
+                                <p>{{ item.notes }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="item-cost">
+                            <span class="item-cost-amount">₹{{ item.estimated_cost|floatformat:2 }}</span>
+                            <span class="item-cost-pct">{{ percentage|floatformat:1 }}% of budget</span>
+                            <div class="mini-bar">
+                                <div class="mini-bar-fill" style="width: {{ capped_percentage|floatformat:0 }}%"></div>
+                            </div>
+                        </div>
+                        <div style="margin-left: 0.8rem; flex-shrink: 0;">
+                            <a class="button secondary" href="{% url 'edit_itinerary_item' trip.id item.id %}">Edit</a>
+                            <a class="button danger" href="{% url 'delete_itinerary_item' trip.id item.id %}">Delete</a>
+                        </div>
+                    </div>
+                {% endwith %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p><strong>No itinerary items yet</strong></p>
+            <p>Add activities from the Saved Places section to plan your trip and allocate your budget.</p>
+        </div>
+    {% endif %}
+</div>
+
+<div class="card section-panel" id="itinerary-places-section" style="margin-top: 1.2rem;">
+    <div class="section-heading">
+        <h2>Add locations to itinerary</h2>
+        <span class="section-kicker">Locations</span>
+    </div>
+
+    <button class="toggle-btn" id="places-toggle-btn">
+        <span class="toggle-icon">▶</span>
+        <span class="toggle-text">Hide</span>
+    </button>
+
+    <div class="places-container" id="places-container">
+        {% if trip.places.all %}
+            <ul style="margin-bottom: 1.2rem;">
+                {% for place in trip.places.all %}
+                    <li style="padding: 0.8rem 0; border-bottom: 1px solid #e3ece6; display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <strong>{{ place.name }}</strong> <span class="tag">{{ place.get_place_type_display }}</span>
+                            <a class="button tertiary" style="margin-left: 0.4rem;" href="{% url 'place_weather' trip.id place.id %}{% if place.visit_date %}?date={{ place.visit_date|date:'Y-m-d' }}{% endif %}">View Weather</a>
+                            {% if place.address %}<div class="muted">{{ place.address }}</div>{% endif %}
+                            <div class="muted">{{ place.latitude }}, {{ place.longitude }}</div>
+                            {% if place.visit_date %}
+                                <div class="muted">
+                                    Visit: {{ place.visit_date }}
+                                    {% if place.is_one_day_visit %}
+                                        <span class="tag neutral">One-day</span>
+                                    {% elif place.return_date %}
+                                        to {{ place.return_date }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            {% if place.notes %}<div>{{ place.notes }}</div>{% endif %}
+                        </div>
+                        <div style="margin-left: 0.8rem; flex-shrink: 0;">
+                            <a class="button secondary" href="{% url 'edit_place' trip.id place.id %}">Edit</a>
+                            <a class="button danger" href="{% url 'delete_place' trip.id place.id %}">Delete</a>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No places saved yet. Add one below!</p>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 1.5rem; margin-bottom: 1.2rem;">
+        <h3>Map</h3>
+        <p class="muted">Click on the map to auto-fill latitude and longitude for a new place.</p>
+        <div class="map-shell">
+            <div id="trip-map" class="map-canvas"></div>
+        </div>
+    </div>
+
+    <h3>Save place or attraction</h3>
+    <p class="muted">Tip: click on the map to auto-fill latitude and longitude.</p>
+    <form method="post">
+        {% csrf_token %}
+        {% if place_form.non_field_errors %}
+            <div class="errorlist">{{ place_form.non_field_errors }}</div>
+        {% endif %}
+        <div class="stack">
+            <div>
+                <label for="place-search-input"><strong>Search place</strong></label>
+                <input id="place-search-input" type="text" placeholder="Start typing a place name..." autocomplete="off" />
+                <div id="place-suggestions" class="card" style="padding: 0.45rem; margin-top: 0.4rem; display: none;">
+                    <div class="muted" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Recommended places</div>
+                    <ul id="place-suggestions-list" style="margin: 0; padding-left: 0; list-style: none;"></ul>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-name"><strong>Name</strong></label>
+                    {{ place_form.name }}
+                </div>
+                <div>
+                    <label for="id_place-place_type"><strong>Type</strong></label>
+                    {{ place_form.place_type }}
+                </div>
+            </div>
+            <div>
+                <label for="id_place-address"><strong>Address</strong></label>
+                {{ place_form.address }}
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-latitude"><strong>Latitude</strong></label>
+                    {{ place_form.latitude }}
+                </div>
+                <div>
+                    <label for="id_place-longitude"><strong>Longitude</strong></label>
+                    {{ place_form.longitude }}
+                </div>
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-visit_date"><strong>Visit Date</strong></label>
+                    {{ place_form.visit_date }}
+                </div>
+                <div>
+                    <label for="id_place-return_date"><strong>Return Date</strong></label>
+                    {{ place_form.return_date }}
+                </div>
+            </div>
+            <div>
+                <label for="id_place-is_one_day_visit">
+                    {{ place_form.is_one_day_visit }}
+                    <strong>One-day visit</strong>
+                </label>
+                <p class="muted" style="margin: 0.25rem 0 0;">If selected, return date will be set to the same date as visit date.</p>
+            </div>
+            <div>
+                <label for="id_place-add_to_itinerary">
+                    {{ place_form.add_to_itinerary }}
+                    <strong>Add this place to itinerary</strong>
+                </label>
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Auto-enabled when a visit date is set</p>
+            </div>
+            <div id="itinerary-title-row" class="collapsible-row" aria-hidden="true">
+                <label for="id_place-itinerary_title"><strong>Itinerary title (optional)</strong></label>
+                {{ place_form.itinerary_title }}
+                <p class="muted" style="margin: 0.25rem 0 0;">If blank, a title like "Visit Place Name" is used.</p>
+            </div>
+            <div>
+                <label for="id_place-notes"><strong>Notes</strong></label>
+                {{ place_form.notes }}
+            </div>
+        </div>
+        <button type="submit" name="add_place">Save Place</button>
+    </form>
+</div>
+
+{{ map_points|json_script:"trip-map-points" }}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    (function () {
+        const mapElement = document.getElementById('trip-map');
+        const placeSearchInput = document.getElementById('place-search-input');
+        const placeSuggestionsPanel = document.getElementById('place-suggestions');
+        const placeSuggestionsList = document.getElementById('place-suggestions-list');
+        const placeNameInput = document.getElementById('id_place-name');
+        const placeAddressInput = document.getElementById('id_place-address');
+        const placeLatitudeInput = document.getElementById('id_place-latitude');
+        const placeLongitudeInput = document.getElementById('id_place-longitude');
+        const placeVisitDateInput = document.getElementById('id_place-visit_date');
+        const placeReturnDateInput = document.getElementById('id_place-return_date');
+        const placeOneDayCheckbox = document.getElementById('id_place-is_one_day_visit');
+        const addToItineraryCheckbox = document.getElementById('id_place-add_to_itinerary');
+        const itineraryTitleRow = document.getElementById('itinerary-title-row');
+        const itineraryTitleInput = document.getElementById('id_place-itinerary_title');
+
+        // Initialize map if element exists
+        if (mapElement) {
+            const points = JSON.parse(document.getElementById('trip-map-points').textContent || '[]');
+            const fallbackCenter = points.length ? [points[0].lat, points[0].lng] : [20, 0];
+            const map = L.map('trip-map', { scrollWheelZoom: false }).setView(fallbackCenter, points.length ? 11 : 2);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors',
+            }).addTo(map);
+
+            const bounds = [];
+            points.forEach((point) => {
+                const marker = L.marker([point.lat, point.lng]).addTo(map);
+                marker.bindPopup(`<strong>${point.name}</strong><br>${point.address || ''}`.trim());
+                bounds.push([point.lat, point.lng]);
+            });
+
+            if (bounds.length > 1) {
+                map.fitBounds(bounds, { padding: [30, 30] });
+            } else if (bounds.length === 1) {
+                map.setView(bounds[0], 12);
+            }
+
+            let pickedLocationMarker = null;
+
+            map.on('click', (event) => {
+                if (!placeLatitudeInput || !placeLongitudeInput) {
+                    return;
+                }
+
+                const { lat, lng } = event.latlng;
+                placeLatitudeInput.value = Number(lat).toFixed(6);
+                placeLongitudeInput.value = Number(lng).toFixed(6);
+
+                if (pickedLocationMarker) {
+                    pickedLocationMarker.setLatLng(event.latlng);
+                } else {
+                    pickedLocationMarker = L.circleMarker(event.latlng, {
+                        radius: 6,
+                        color: '#f4a259',
+                        fillColor: '#f4a259',
+                        fillOpacity: 0.95,
+                    }).addTo(map);
+                }
+            });
+        }
+
+        // Place search functionality
+        if (placeSearchInput) {
+            placeSearchInput.addEventListener('input', function (e) {
+                const query = e.target.value.trim();
+                if (query.length < 2) {
+                    placeSuggestionsPanel.style.display = 'none';
+                    return;
+                }
+
+                fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`)
+                    .then((res) => res.json())
+                    .then((data) => {
+                        placeSuggestionsList.innerHTML = '';
+                        if (data.length === 0) {
+                            placeSuggestionsPanel.style.display = 'none';
+                            return;
+                        }
+
+                        data.forEach((place) => {
+                            const li = document.createElement('li');
+                            li.style.padding = '0.5rem 0';
+                            li.style.cursor = 'pointer';
+                            li.style.borderBottom = '1px solid #f0f0f0';
+                            li.style.fontSize = '0.9rem';
+                            li.textContent = place.display_name;
+
+                            li.addEventListener('click', function () {
+                                placeNameInput.value = place.name || place.display_name.split(',')[0];
+                                placeAddressInput.value = place.display_name;
+                                placeLatitudeInput.value = place.lat;
+                                placeLongitudeInput.value = place.lon;
+                                placeSearchInput.value = '';
+                                placeSuggestionsPanel.style.display = 'none';
+                            });
+
+                            placeSuggestionsList.appendChild(li);
+                        });
+                        placeSuggestionsPanel.style.display = 'block';
+                    })
+                    .catch((err) => console.error('Search error:', err));
+            });
+        }
+
+        // One-day visit sync
+        function syncOneDayVisitState() {
+            if (!placeOneDayCheckbox || !placeReturnDateInput) {
+                return;
+            }
+
+            if (placeOneDayCheckbox.checked) {
+                if (placeVisitDateInput && placeVisitDateInput.value) {
+                    placeReturnDateInput.value = placeVisitDateInput.value;
+                }
+                placeReturnDateInput.disabled = true;
+            } else {
+                placeReturnDateInput.disabled = false;
+            }
+        }
+
+        if (placeOneDayCheckbox) {
+            placeOneDayCheckbox.addEventListener('change', syncOneDayVisitState);
+            if (placeVisitDateInput) {
+                placeVisitDateInput.addEventListener('change', syncOneDayVisitState);
+            }
+            syncOneDayVisitState();
+        }
+
+        // Itinerary title field visibility sync
+        function syncItineraryTitleField() {
+            if (!addToItineraryCheckbox || !itineraryTitleRow) {
+                return;
+            }
+
+            if (addToItineraryCheckbox.checked) {
+                itineraryTitleRow.classList.add('is-visible');
+                itineraryTitleRow.setAttribute('aria-hidden', 'false');
+                if (itineraryTitleInput) {
+                    itineraryTitleInput.disabled = false;
+                }
+            } else {
+                itineraryTitleRow.classList.remove('is-visible');
+                itineraryTitleRow.setAttribute('aria-hidden', 'true');
+                if (itineraryTitleInput) {
+                    itineraryTitleInput.disabled = true;
+                    itineraryTitleInput.value = '';
+                }
+            }
+        }
+
+        if (addToItineraryCheckbox) {
+            addToItineraryCheckbox.addEventListener('change', syncItineraryTitleField);
+            // Also sync when visit_date changes (auto-check checkbox if date is set)
+            if (placeVisitDateInput) {
+                placeVisitDateInput.addEventListener('change', function() {
+                    if (placeVisitDateInput.value && !addToItineraryCheckbox.checked) {
+                        addToItineraryCheckbox.checked = true;
+                        syncItineraryTitleField();
+                    }
+                });
+            }
+            syncItineraryTitleField();
+        }
+
+        // Places section toggle functionality
+        const toggleBtn = document.getElementById('places-toggle-btn');
+        const placesContainer = document.getElementById('places-container');
+        
+        if (toggleBtn && placesContainer) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                placesContainer.classList.toggle('collapsed');
+                
+                const isCollapsed = placesContainer.classList.contains('collapsed');
+                const toggleText = toggleBtn.querySelector('.toggle-text');
+                if (toggleText) {
+                    toggleText.textContent = isCollapsed ? 'Show' : 'Hide';
+                }
+            });
+        }
+    })();
+</script>
+{% endblock %}

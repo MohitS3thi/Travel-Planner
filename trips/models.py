@@ -20,11 +20,17 @@ class Trip(models.Model):
 	end_date = models.DateField()
 	budget = models.DecimalField(max_digits=10, decimal_places=2)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PLANNED)
-	interests = models.TextField(help_text='Example: food, museums, hiking, nightlife')
+	interests = models.TextField(blank=True, help_text='Example: food, museums, hiking, nightlife')
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		ordering = ['-start_date', '-created_at']
+		constraints = [
+			models.CheckConstraint(
+				check=models.Q(end_date__gte=models.F('start_date')),
+				name='trip_end_date_on_or_after_start_date',
+			),
+		]
 
 	def __str__(self):
 		return f'{self.destination} ({self.start_date} - {self.end_date})'
@@ -46,6 +52,9 @@ class Place(models.Model):
 	address = models.CharField(max_length=255, blank=True)
 	latitude = models.DecimalField(max_digits=9, decimal_places=6)
 	longitude = models.DecimalField(max_digits=9, decimal_places=6)
+	visit_date = models.DateField(null=True, blank=True)
+	return_date = models.DateField(null=True, blank=True)
+	is_one_day_visit = models.BooleanField(default=False)
 	notes = models.TextField(blank=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 
@@ -69,6 +78,26 @@ class ItineraryItem(models.Model):
 
 	def __str__(self):
 		return f'{self.title} on {self.date}'
+
+
+class TripRoute(models.Model):
+	trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='routes')
+	name = models.CharField(max_length=180)
+	start_key = models.CharField(max_length=80)
+	start_name = models.CharField(max_length=160)
+	start_lat = models.DecimalField(max_digits=9, decimal_places=6)
+	start_lng = models.DecimalField(max_digits=9, decimal_places=6)
+	end_key = models.CharField(max_length=80)
+	end_name = models.CharField(max_length=160)
+	end_lat = models.DecimalField(max_digits=9, decimal_places=6)
+	end_lng = models.DecimalField(max_digits=9, decimal_places=6)
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['-created_at']
+
+	def __str__(self):
+		return f'{self.name} ({self.trip.destination})'
 
 
 class ChecklistItem(models.Model):

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block nav_secondary %}
+<div class="ribbon-group secondary">
+    <a href="{% url 'trip_itinerary' trip.id %}">Back to Itinerary</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card section-panel">
+    <div class="section-heading">
+        <h2>Delete Place</h2>
+        <span class="section-kicker">Warning: This action cannot be undone</span>
+    </div>
+
+    <p>Are you sure you want to permanently delete <strong>{{ place.name }}</strong> from your saved places?</p>
+
+    {% if place.visit_date %}
+        <p class="tag warn">This place is scheduled for {{ place.visit_date }}. Deleting it will also remove related itinerary items.</p>
+    {% endif %}
+
+    <div class="toolbar" style="margin-top: 1.5rem;">
+        <form method="post" style="flex: 1 1 auto; margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="button danger">Yes, Delete {{ place.name }}</button>
+        </form>
+        <a href="{% url 'trip_itinerary' trip.id %}" class="button secondary">Cancel</a>
+    </div>
+</div>
+
+{% endblock %}
