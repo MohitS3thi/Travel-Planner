@@ -13,6 +13,7 @@ urlpatterns = [
     path('trips/<int:trip_id>/itinerary/<int:item_id>/edit/', views.edit_itinerary_item, name='edit_itinerary_item'),
     path('trips/<int:trip_id>/itinerary/<int:item_id>/delete/', views.delete_itinerary_item, name='delete_itinerary_item'),
     path('trips/<int:trip_id>/weather/', views.trip_weather, name='trip_weather'),
+    path('trips/<int:trip_id>/ai-help/', views.ai_help, name='ai_help'),
     path('trips/<int:trip_id>/places/<int:place_id>/weather/', views.place_weather, name='place_weather'),
     path('trips/<int:trip_id>/places/<int:place_id>/edit/', views.edit_place, name='edit_place'),
     path('trips/<int:trip_id>/places/<int:place_id>/delete/', views.delete_place, name='delete_place'),

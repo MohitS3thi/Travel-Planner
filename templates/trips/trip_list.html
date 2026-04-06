@@ -2,10 +2,10 @@
 
 {% block nav_secondary %}
 <div class="ribbon-group secondary">
-    <a href="{% url 'trip_list' %}" class="{% if selected_status == 'all' %}active{% endif %}">All</a>
-    <a href="{% url 'trip_list' %}?status=planned" class="{% if selected_status == 'planned' %}active{% endif %}">Planned</a>
-    <a href="{% url 'trip_list' %}?status=completed" class="{% if selected_status == 'completed' %}active{% endif %}">Completed</a>
-    <a href="{% url 'trip_list' %}?status=cancelled" class="{% if selected_status == 'cancelled' %}active{% endif %}">Cancelled</a>
+    <a href="{% url 'trip_list' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}" class="{% if selected_status == 'all' %}active{% endif %}">All</a>
+    <a href="{% url 'trip_list' %}?status=planned{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="{% if selected_status == 'planned' %}active{% endif %}">Planned</a>
+    <a href="{% url 'trip_list' %}?status=completed{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="{% if selected_status == 'completed' %}active{% endif %}">Completed</a>
+    <a href="{% url 'trip_list' %}?status=cancelled{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="{% if selected_status == 'cancelled' %}active{% endif %}">Cancelled</a>
 </div>
 {% endblock %}
 
@@ -13,6 +13,9 @@
 <div class="hero-banner">
     <h1 style="margin-bottom: 0.2rem;">Your Travel Dashboard</h1>
     <p class="muted">Build plans, pin locations on the map, and keep your trip prep organized in one place.</p>
+    {% if search_query %}
+        <p class="muted" style="margin-top: 0.5rem;">Showing results for "{{ search_query }}". <a href="{% url 'trip_list' %}">Clear search</a></p>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -32,7 +35,7 @@
                     {% endif %}
                     <p class="muted">{{ trip.start_date }} to {{ trip.end_date }}</p>
                     <div class="chip-row">
-                        <span class="chip">Budget: ₹{{ trip.budget }}</span>
+                        <span class="chip">Budget: &#8377;{{ trip.budget }}</span>
                     </div>
                     <p><strong>Interests</strong></p>
                     <p class="muted" style="margin-top: -0.35rem;">{{ trip.interests }}</p>

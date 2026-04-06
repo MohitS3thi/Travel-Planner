@@ -1,4 +1,5 @@
 from django import forms
+from datetime import timedelta
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
@@ -178,4 +179,83 @@ class TripRouteForm(forms.Form):
         cleaned_data = super().clean()
         if cleaned_data.get('start_key') == cleaned_data.get('end_key'):
             raise forms.ValidationError('Start and end points must be different.')
+        return cleaned_data
+
+
+class AIItineraryHelpForm(forms.Form):
+    TRAVEL_STYLE_CHOICES = [
+        ('solo', 'Solo'),
+        ('family', 'Family'),
+        ('adventure', 'Adventure'),
+        ('food', 'Food'),
+        ('custom', 'Custom'),
+    ]
+
+    destination = forms.CharField(max_length=120)
+    generate_from_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    generate_to_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+    budget = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+    travel_style = forms.ChoiceField(choices=TRAVEL_STYLE_CHOICES)
+    custom_travel_style = forms.CharField(max_length=80, required=False)
+    use_auto_weather = forms.BooleanField(required=False, initial=True)
+    weather_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}))
+    preferred_start_time = forms.TimeField(widget=forms.TimeInput(attrs={'type': 'time'}))
+    preferred_end_time = forms.TimeField(widget=forms.TimeInput(attrs={'type': 'time'}))
+
+    def __init__(self, *args, **kwargs):
+        self.trip = kwargs.pop('trip', None)
+        super().__init__(*args, **kwargs)
+
+        if self.trip and self.trip.start_date and self.trip.end_date and self.trip.start_date <= self.trip.end_date:
+            min_date = self.trip.start_date.isoformat()
+            max_date = self.trip.end_date.isoformat()
+            self.fields['generate_from_date'].widget.attrs.update({'min': min_date, 'max': max_date})
+            self.fields['generate_to_date'].widget.attrs.update({'min': min_date, 'max': max_date})
+
+            if not self.is_bound:
+                if not self.initial.get('generate_from_date'):
+                    self.initial['generate_from_date'] = self.trip.start_date
+                if not self.initial.get('generate_to_date'):
+                    self.initial['generate_to_date'] = self.trip.end_date
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get('preferred_start_time')
+        end_time = cleaned_data.get('preferred_end_time')
+        travel_style = cleaned_data.get('travel_style')
+        custom_style = (cleaned_data.get('custom_travel_style') or '').strip()
+        generate_from_date = cleaned_data.get('generate_from_date')
+        generate_to_date = cleaned_data.get('generate_to_date')
+
+        if not generate_from_date or not generate_to_date:
+            raise forms.ValidationError('Select a valid date range for itinerary generation.')
+
+        if generate_to_date < generate_from_date:
+            raise forms.ValidationError('Generate to date must be on or after generate from date.')
+
+        if self.trip and self.trip.start_date and self.trip.end_date:
+            if generate_from_date < self.trip.start_date or generate_from_date > self.trip.end_date:
+                raise forms.ValidationError('Generate from date must be within the trip range.')
+            if generate_to_date < self.trip.start_date or generate_to_date > self.trip.end_date:
+                raise forms.ValidationError('Generate to date must be within the trip range.')
+
+        selected_dates = []
+        current = generate_from_date
+        while current <= generate_to_date:
+            selected_dates.append(current.isoformat())
+            current += timedelta(days=1)
+
+        cleaned_data['selected_trip_dates'] = selected_dates
+
+        if start_time and end_time and end_time <= start_time:
+            raise forms.ValidationError('Preferred end time must be later than preferred start time.')
+
+        if travel_style == 'custom' and not custom_style:
+            raise forms.ValidationError('Add a custom travel style when selecting Custom.')
+
+        if custom_style:
+            cleaned_data['travel_style_text'] = custom_style
+        else:
+            cleaned_data['travel_style_text'] = travel_style
+
         return cleaned_data

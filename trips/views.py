@@ -1,15 +1,21 @@
+import json
+import os
 from datetime import datetime
+from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from .forms import ChecklistItemForm, ItineraryItemForm, PlaceForm, SignUpForm, TripForm, TripRouteForm
+from .ai_planner import generate_personalized_itinerary
+from .forms import AIItineraryHelpForm, ChecklistItemForm, ItineraryItemForm, PlaceForm, SignUpForm, TripForm, TripRouteForm
 from .models import ChecklistItem, ItineraryItem, Place, Trip, TripRoute
 from .utils import generate_weather_aware_suggestions
 from .weather import get_weather_for_coordinates, get_weather_for_place_date
@@ -47,6 +53,107 @@ def _route_color_for_id(route_id):
 	return palette[route_id % len(palette)]
 
 
+def _trip_default_weather_summary(weather_payload):
+	if not weather_payload:
+		return ''
+
+	current = weather_payload.get('current') or {}
+	trip_forecast = weather_payload.get('trip_forecast') or []
+	parts = []
+
+	if current.get('weather_label'):
+		parts.append(f"Current: {current['weather_label']}")
+	if current.get('temperature') is not None:
+		parts.append(f"{current['temperature']} deg C")
+
+	if trip_forecast:
+		driest = min(trip_forecast, key=lambda day: day.get('precipitation_probability') or 0)
+		wettest = max(trip_forecast, key=lambda day: day.get('precipitation_probability') or 0)
+		parts.append(
+			f"Driest day around {driest.get('date')} ({driest.get('precipitation_probability', 0)}% rain chance)"
+		)
+		parts.append(
+			f"Highest rain chance around {wettest.get('date')} ({wettest.get('precipitation_probability', 0)}%)"
+		)
+
+	if weather_payload.get('warning'):
+		parts.append(weather_payload['warning'].get('message', ''))
+
+	return '. '.join(part for part in parts if part)
+
+
+def _serialize_ai_plan(value):
+	if isinstance(value, dict):
+		return {key: _serialize_ai_plan(inner_value) for key, inner_value in value.items()}
+	if isinstance(value, list):
+		return [_serialize_ai_plan(item) for item in value]
+	if isinstance(value, Decimal):
+		return str(value)
+	return value
+
+
+def _store_ai_plan_in_session(request, plan):
+	request.session['last_ai_plan'] = json.dumps(_serialize_ai_plan(plan), ensure_ascii=True)
+	request.session.modified = True
+
+
+def _load_ai_plan_from_session(request):
+	plan_text = request.session.get('last_ai_plan')
+	if not plan_text:
+		return None
+	try:
+		return json.loads(plan_text)
+	except json.JSONDecodeError:
+		return None
+
+
+def _save_ai_plan_to_itinerary(trip, plan):
+	created_count = 0
+	day_items = plan.get('day_wise_itinerary') or []
+
+	if not day_items:
+		return 0
+
+	start_date = trip.start_date
+	if start_date is None:
+		return 0
+
+	TripItineraryPrefix = f'AI Plan - {trip.destination} - Day '
+	trip.itinerary_items.filter(title__startswith=TripItineraryPrefix).delete()
+
+	for day in day_items:
+		day_number = int(day.get('day_number') or created_count + 1)
+		trip_date_text = (day.get('trip_date') or '').strip() if isinstance(day.get('trip_date'), str) else ''
+		if trip_date_text:
+			try:
+				day_date = datetime.strptime(trip_date_text, '%Y-%m-%d').date()
+			except ValueError:
+				day_date = start_date + timedelta(days=max(0, day_number - 1))
+		else:
+			day_date = start_date + timedelta(days=max(0, day_number - 1))
+		budget = day.get('budget') or {}
+		estimated_cost = Decimal(str(budget.get('total', '0') or '0'))
+		morning = (day.get('morning') or '').strip()
+		afternoon = (day.get('afternoon') or '').strip()
+		evening = (day.get('evening') or '').strip()
+		window_parts = [
+			f"Morning: {morning}" if morning else 'Morning: not specified',
+			f"Afternoon: {afternoon}" if afternoon else 'Afternoon: not specified',
+			f"Evening: {evening}" if evening else 'Evening: not specified',
+			f"Budget: ₹{estimated_cost}",
+		]
+		ItineraryItem.objects.create(
+			trip=trip,
+			date=day_date,
+			title=f'AI Plan - {trip.destination} - Day {day_number}',
+			notes=' | '.join(window_parts),
+			estimated_cost=estimated_cost,
+		)
+		created_count += 1
+
+	return created_count
+
+
 def home_view(request):
 	if request.user.is_authenticated:
 		return redirect('trip_list')
@@ -68,8 +175,18 @@ def signup_view(request):
 @login_required
 def trip_list(request):
 	trips = Trip.objects.filter(owner=request.user)
+	search_query = (request.GET.get('q') or '').strip()
 	selected_status = request.GET.get('status', 'all').strip().lower()
 	allowed_statuses = {choice[0] for choice in Trip.STATUS_CHOICES}
+
+	if search_query:
+		trips = trips.filter(
+			Q(destination__icontains=search_query)
+			| Q(interests__icontains=search_query)
+			| Q(places__name__icontains=search_query)
+			| Q(itinerary_items__title__icontains=search_query)
+			| Q(itinerary_items__notes__icontains=search_query)
+		).distinct()
 
 	if selected_status in allowed_statuses:
 		trips = trips.filter(status=selected_status)
@@ -82,6 +199,7 @@ def trip_list(request):
 		{
 			'trips': trips,
 			'selected_status': selected_status,
+			'search_query': search_query,
 		},
 	)
 
@@ -325,6 +443,116 @@ def trip_weather(request, trip_id):
 			'trip': trip,
 			'weather': weather,
 			'suggestions': suggestions,
+		},
+	)
+
+
+@login_required
+def ai_help(request, trip_id):
+	trip = get_object_or_404(Trip, id=trip_id, owner=request.user)
+	generated_plan = None
+	ai_source = None
+	ai_model = None
+
+	if request.method == 'POST' and 'save_ai_plan' in request.POST:
+		stored_plan = _load_ai_plan_from_session(request)
+		if not stored_plan:
+			messages.error(request, 'Generate an AI itinerary first, then save it to the itinerary tab.')
+			return redirect('ai_help', trip_id=trip.id)
+
+		created_count = _save_ai_plan_to_itinerary(trip, stored_plan)
+		if created_count:
+			request.session.pop('last_ai_plan', None)
+			request.session.modified = True
+			messages.success(
+				request,
+				f"Added {created_count} AI day plan{'s' if created_count != 1 else ''} to the itinerary tab.",
+			)
+			return redirect('trip_itinerary', trip_id=trip.id)
+
+		messages.error(request, 'No AI itinerary days were available to save.')
+		return redirect('ai_help', trip_id=trip.id)
+
+	weather = get_weather_for_coordinates(
+		trip.destination_lat,
+		trip.destination_lng,
+		forecast_days=5,
+		trip_start_date=trip.start_date,
+	)
+
+	default_weather_summary = _trip_default_weather_summary(weather)
+
+	default_style = 'custom'
+	interests_text = (trip.interests or '').lower()
+	for style_option in ('solo', 'family', 'adventure', 'food'):
+		if style_option in interests_text:
+			default_style = style_option
+			break
+
+	initial_data = {
+		'destination': trip.destination,
+		'generate_from_date': trip.start_date,
+		'generate_to_date': trip.end_date,
+		'budget': trip.budget,
+		'travel_style': default_style,
+		'custom_travel_style': '' if default_style != 'custom' else (trip.interests or ''),
+		'use_auto_weather': True,
+		'weather_summary': default_weather_summary,
+		'preferred_start_time': '08:00',
+		'preferred_end_time': '21:00',
+	}
+
+	form = AIItineraryHelpForm(request.POST or None, initial=initial_data, trip=trip)
+	generated_plan = None
+
+	if request.method == 'POST' and form.is_valid():
+		cleaned = form.cleaned_data
+		selected_dates = []
+		for date_text in (cleaned.get('selected_trip_dates') or []):
+			try:
+				selected_dates.append(datetime.strptime(date_text, '%Y-%m-%d').date())
+			except ValueError:
+				continue
+
+		existing_items_for_selected_dates = trip.itinerary_items.filter(date__in=selected_dates) if selected_dates else trip.itinerary_items.none()
+		total_trip_days = max(1, (trip.end_date - trip.start_date).days + 1)
+		weather_text = default_weather_summary if cleaned.get('use_auto_weather') else (cleaned.get('weather_summary') or '')
+		generated_plan = generate_personalized_itinerary(
+			destination=cleaned['destination'],
+			selected_trip_dates=cleaned['selected_trip_dates'],
+			budget=cleaned['budget'],
+			total_trip_days=total_trip_days,
+			travel_style=cleaned['travel_style_text'],
+			weather_summary=weather_text,
+			preferred_start_time=cleaned['preferred_start_time'],
+			preferred_end_time=cleaned['preferred_end_time'],
+			saved_places=trip.places.all(),
+			existing_itinerary_items=existing_items_for_selected_dates,
+		)
+		_store_ai_plan_in_session(request, generated_plan)
+
+	generated_source = None
+	generated_model = None
+	fallback_reason = None
+	if generated_plan:
+		generated_source = generated_plan.get('source') or generated_plan.get('summary', {}).get('source')
+		generated_model = generated_plan.get('summary', {}).get('model_name')
+		fallback_reason = generated_plan.get('summary', {}).get('fallback_reason')
+
+	has_openai_key = bool((os.getenv('OPENAI_API_KEY') or '').strip())
+
+	return render(
+		request,
+		'trips/ai_help.html',
+		{
+			'trip': trip,
+			'form': form,
+			'weather': weather,
+			'generated_plan': generated_plan,
+			'ai_source': generated_source,
+			'ai_model': generated_model,
+			'ai_fallback_reason': fallback_reason,
+			'has_openai_key': has_openai_key,
 		},
 	)
 

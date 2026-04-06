@@ -5,17 +5,21 @@
     <a href="{% url 'trip_detail' trip.id %}" style="font-weight: 600;">Trip Overview</a>
     <a href="{% url 'trip_itinerary' trip.id %}" style="font-weight: 600;">Itinerary & Budget</a>
     <a href="{% url 'trip_weather' trip.id %}" class="active" style="font-weight: 600;">Weather</a>
+    <a href="{% url 'ai_help' trip.id %}" style="font-weight: 600;">AI Help</a>
 </div>
 {% endblock %}
 
-{% block nav_secondary %}
-<div class="ribbon-group secondary" id="trip-weather-ribbon">
-    <a href="#weather-intelligence-section">Intelligence</a>
-    <a href="#weather-suggestions-section">Suggestions</a>
-</div>
-{% endblock %}
+{% block nav_secondary %}{% endblock %}
 
 {% block content %}
+<div class="trip-shell">
+    {% include 'trips/_trip_left_ribbon.html' with active_page='weather' %}
+    <div class="trip-main">
+        <div class="section-ribbon" id="trip-weather-ribbon">
+            <a href="#weather-intelligence-section">Intelligence</a>
+            <a href="#weather-suggestions-section">Suggestions</a>
+        </div>
+
 <div class="card section-panel" id="weather-intelligence-section">
     <div class="section-heading">
         <h2>{{ trip.destination }} Weather Intelligence</h2>
@@ -94,5 +98,8 @@
             <li>{{ tip }}</li>
         {% endfor %}
     </ul>
+</div>
+
+    </div>
 </div>
 {% endblock %}

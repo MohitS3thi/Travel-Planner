@@ -1,0 +1,9 @@
+<aside class="trip-left-ribbon">
+    <h3>Trip Navigation</h3>
+    <nav>
+        <a href="{% url 'trip_detail' trip.id %}" class="{% if active_page == 'overview' %}active{% endif %}">Trip Overview</a>
+        <a href="{% url 'trip_itinerary' trip.id %}" class="{% if active_page == 'itinerary' %}active{% endif %}">Itinerary &amp; Budget</a>
+        <a href="{% url 'trip_weather' trip.id %}" class="{% if active_page == 'weather' %}active{% endif %}">Weather</a>
+        <a href="{% url 'ai_help' trip.id %}" class="{% if active_page == 'ai_help' %}active{% endif %}">AI Help</a>
+    </nav>
+</aside>

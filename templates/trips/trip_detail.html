@@ -1,22 +1,9 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-<style>
-    .collapsible-row {
-        max-height: 0;
-        opacity: 0;
-        overflow: hidden;
-        transform: translateY(-4px);
-        transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
-    }
-
-    .collapsible-row.is-visible {
-        max-height: 140px;
-        opacity: 1;
-        transform: translateY(0);
-    }
-</style>
+<link rel="stylesheet" href="{% static 'trips/css/trip_detail.css' %}">
 {% endblock %}
 
 {% block nav_trip_actions %}
@@ -24,20 +11,24 @@
     <a href="{% url 'trip_detail' trip.id %}" class="active" style="font-weight: 600;">Trip Overview</a>
     <a href="{% url 'trip_itinerary' trip.id %}" style="font-weight: 600;">Itinerary & Budget</a>
     <a href="{% url 'trip_weather' trip.id %}" style="font-weight: 600;">Weather</a>
+    <a href="{% url 'ai_help' trip.id %}" style="font-weight: 600;">AI Help</a>
 </div>
 {% endblock %}
 
-{% block nav_secondary %}
-<div class="ribbon-group secondary" id="trip-detail-ribbon">
-    <a href="#trip-overview" class="active">Overview</a>
-    <a href="#trip-map-section">Map</a>
-    <a href="#trip-suggestions-section">Suggestions</a>
-    <a href="#trip-route-section">Route</a>
-    <a href="#trip-checklist-section">Checklist</a>
-</div>
-{% endblock %}
+{% block nav_secondary %}{% endblock %}
 
 {% block content %}
+
+<div class="trip-shell">
+    {% include 'trips/_trip_left_ribbon.html' with active_page='overview' %}
+    <div class="trip-main">
+        <div class="section-ribbon" id="trip-detail-ribbon">
+            <a href="#trip-overview" class="active">Overview</a>
+            <a href="#trip-map-section">Map</a>
+            <a href="#trip-suggestions-section">Suggestions</a>
+            <a href="#trip-route-section">Route</a>
+            <a href="#trip-checklist-section">Checklist</a>
+        </div>
 
 <div class="card section-anchor section-panel reveal-on-scroll" id="trip-overview">
     <div class="section-heading">
@@ -99,7 +90,7 @@
         <p class="muted">No coordinates saved yet. Add them from the trip form to unlock the map.</p>
     {% endif %}
     <p><strong>Dates:</strong> {{ trip.start_date }} to {{ trip.end_date }}</p>
-    <p><strong>Budget:</strong> ₹{{ trip.budget }}</p>
+    <p><strong>Budget:</strong> &#8377;{{ trip.budget }}</p>
     <p><strong>Interests:</strong> {% if trip.interests %}{{ trip.interests }}{% else %}<span class="muted">Not added yet.</span>{% endif %}</p>
 </div>
 
@@ -202,7 +193,7 @@
                                 <span style="display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 0.4rem; background: {{ route_row.color }};"></span>
                                 {{ route.name }}
                             </strong>
-                            <div class="muted">{{ route.start_name }} → {{ route.end_name }}</div>
+                            <div class="muted">{{ route.start_name }} &rarr; {{ route.end_name }}</div>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
                             <a class="button secondary" href="{% url 'edit_route' trip.id route.id %}">Edit</a>
@@ -246,435 +237,17 @@
     </form>
 </div>
 
+    </div>
+</div>
+
 {{ map_points|json_script:"trip-map-points" }}
 {{ routes_data|json_script:"trip-routes-data" }}
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script>
-    (function () {
-        const mapElement = document.getElementById('trip-map');
-        const routeStart = document.getElementById('id_start_key');
-        const routeEnd = document.getElementById('id_end_key');
-        const previewRouteButton = document.getElementById('preview-route-button');
-        const clearRouteButton = document.getElementById('clear-route-button');
-        const routeStatus = document.getElementById('route-status');
-        const mapStatus = document.getElementById('map-status');
-        const placeSearchInput = document.getElementById('place-search-input');
-        const placeSuggestionsPanel = document.getElementById('place-suggestions');
-        const placeSuggestionsList = document.getElementById('place-suggestions-list');
-        const placeNameInput = document.getElementById('id_place-name');
-        const placeAddressInput = document.getElementById('id_place-address');
-        const placeLatitudeInput = document.getElementById('id_place-latitude');
-        const placeLongitudeInput = document.getElementById('id_place-longitude');
-        const placeVisitDateInput = document.getElementById('id_place-visit_date');
-        const placeReturnDateInput = document.getElementById('id_place-return_date');
-        const placeOneDayCheckbox = document.getElementById('id_place-is_one_day_visit');
-        const addToItineraryCheckbox = document.getElementById('id_place-add_to_itinerary');
-        const itineraryTitleRow = document.getElementById('itinerary-title-row');
-        const itineraryTitleInput = document.getElementById('id_place-itinerary_title');
-        const ribbonLinks = Array.from(document.querySelectorAll('#trip-detail-ribbon a[href^="#"]'));
-        const revealItems = Array.from(document.querySelectorAll('.reveal-on-scroll'));
-
-        if (!mapElement) {
-            return;
-        }
-
-        const sectionTargets = ribbonLinks
-            .map((link) => {
-                const href = link.getAttribute('href');
-                if (!href) {
-                    return null;
-                }
-                return document.querySelector(href);
-            })
-            .filter(Boolean);
-
-        function setActiveRibbonLink(sectionId) {
-            ribbonLinks.forEach((link) => {
-                const linkTarget = (link.getAttribute('href') || '').replace('#', '');
-                if (linkTarget === sectionId) {
-                    link.classList.add('active');
-                } else {
-                    link.classList.remove('active');
-                }
-            });
-        }
-
-        if (ribbonLinks.length) {
-            const initialHash = window.location.hash.replace('#', '');
-            setActiveRibbonLink(initialHash || 'trip-overview');
-
-            ribbonLinks.forEach((link) => {
-                link.addEventListener('click', () => {
-                    const linkTarget = (link.getAttribute('href') || '').replace('#', '');
-                    if (linkTarget) {
-                        setActiveRibbonLink(linkTarget);
-                    }
-                });
-            });
-
-            if ('IntersectionObserver' in window && sectionTargets.length) {
-                const ribbonObserver = new IntersectionObserver((entries) => {
-                    const visibleSections = entries
-                        .filter((entry) => entry.isIntersecting)
-                        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-                    if (visibleSections.length) {
-                        setActiveRibbonLink(visibleSections[0].target.id);
-                    }
-                }, {
-                    root: null,
-                    threshold: [0.2, 0.35, 0.55],
-                    rootMargin: '-90px 0px -48% 0px',
-                });
-
-                sectionTargets.forEach((section) => ribbonObserver.observe(section));
-            }
-        }
-
-        if (revealItems.length) {
-            if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                const revealObserver = new IntersectionObserver((entries, observer) => {
-                    entries.forEach((entry) => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('is-visible');
-                            observer.unobserve(entry.target);
-                        }
-                    });
-                }, {
-                    threshold: 0.15,
-                    rootMargin: '0px 0px -10% 0px',
-                });
-
-                revealItems.forEach((item) => revealObserver.observe(item));
-            } else {
-                revealItems.forEach((item) => item.classList.add('is-visible'));
-            }
-        }
-
-        function syncOneDayVisitState() {
-            if (!placeOneDayCheckbox || !placeReturnDateInput) {
-                return;
-            }
-
-            if (placeOneDayCheckbox.checked) {
-                if (placeVisitDateInput && placeVisitDateInput.value) {
-                    placeReturnDateInput.value = placeVisitDateInput.value;
-                }
-                placeReturnDateInput.disabled = true;
-            } else {
-                placeReturnDateInput.disabled = false;
-            }
-        }
-
-        if (placeOneDayCheckbox) {
-            placeOneDayCheckbox.addEventListener('change', syncOneDayVisitState);
-            if (placeVisitDateInput) {
-                placeVisitDateInput.addEventListener('change', syncOneDayVisitState);
-            }
-            syncOneDayVisitState();
-        }
-
-        function syncItineraryTitleField() {
-            if (!addToItineraryCheckbox || !itineraryTitleRow) {
-                return;
-            }
-
-            if (addToItineraryCheckbox.checked) {
-                itineraryTitleRow.classList.add('is-visible');
-                itineraryTitleRow.setAttribute('aria-hidden', 'false');
-                if (itineraryTitleInput) {
-                    itineraryTitleInput.disabled = false;
-                }
-            } else {
-                itineraryTitleRow.classList.remove('is-visible');
-                itineraryTitleRow.setAttribute('aria-hidden', 'true');
-                if (itineraryTitleInput) {
-                    itineraryTitleInput.disabled = true;
-                    itineraryTitleInput.value = '';
-                }
-            }
-        }
-
-        if (addToItineraryCheckbox) {
-            addToItineraryCheckbox.addEventListener('change', syncItineraryTitleField);
-            // Also sync when visit_date changes (auto-check checkbox if date is set)
-            if (placeVisitDateInput) {
-                placeVisitDateInput.addEventListener('change', function() {
-                    if (placeVisitDateInput.value && !addToItineraryCheckbox.checked) {
-                        addToItineraryCheckbox.checked = true;
-                        syncItineraryTitleField();
-                    }
-                });
-            }
-            syncItineraryTitleField();
-        }
-
-        const points = JSON.parse(document.getElementById('trip-map-points').textContent || '[]');
-        const lookup = new Map(points.map((point) => [point.key, point]));
-        const fallbackCenter = points.length ? [points[0].lat, points[0].lng] : [20, 0];
-        const map = L.map('trip-map', { scrollWheelZoom: false }).setView(fallbackCenter, points.length ? 11 : 2);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(map);
-
-        const bounds = [];
-        points.forEach((point) => {
-            const marker = L.marker([point.lat, point.lng]).addTo(map);
-            marker.bindPopup(`<strong>${point.name}</strong><br>${point.address || ''}`.trim());
-            bounds.push([point.lat, point.lng]);
-        });
-
-        if (bounds.length > 1) {
-            map.fitBounds(bounds, { padding: [30, 30] });
-        } else if (bounds.length === 1) {
-            map.setView(bounds[0], 12);
-        } else {
-            mapStatus.textContent = 'Add destination coordinates or saved places to show markers on the map.';
-        }
-
-        const savedRouteLayers = [];
-        let previewRouteLayers = [];
-        let pickedLocationMarker = null;
-        let placeSearchDebounceTimer = null;
-        let placeLastQuery = '';
-        let placeSuggestionResults = [];
-
-        function computeBearing(startLat, startLng, endLat, endLng) {
-            const toRadians = (value) => value * Math.PI / 180;
-            const toDegrees = (value) => value * 180 / Math.PI;
-            const phi1 = toRadians(startLat);
-            const phi2 = toRadians(endLat);
-            const deltaLambda = toRadians(endLng - startLng);
-
-            const y = Math.sin(deltaLambda) * Math.cos(phi2);
-            const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
-            return (toDegrees(Math.atan2(y, x)) + 360) % 360;
-        }
-
-        function createArrowMarker(startLat, startLng, endLat, endLng, color) {
-            const arrowPositionFactor = 0.82;
-            const markerLat = startLat + ((endLat - startLat) * arrowPositionFactor);
-            const markerLng = startLng + ((endLng - startLng) * arrowPositionFactor);
-            const bearing = computeBearing(startLat, startLng, endLat, endLng);
-
-            return L.marker([markerLat, markerLng], {
-                interactive: false,
-                icon: L.divIcon({
-                    className: 'route-arrow-icon',
-                    html: `<div style="transform: rotate(${bearing}deg); color: ${color}; font-size: 18px; line-height: 1;">➤</div>`,
-                    iconSize: [18, 18],
-                    iconAnchor: [9, 9],
-                }),
-            });
-        }
-
-        function drawRoute(startLat, startLng, endLat, endLng, options) {
-            const line = L.polyline([
-                [startLat, startLng],
-                [endLat, endLng],
-            ], {
-                color: options.color,
-                weight: options.weight,
-                opacity: options.opacity,
-                dashArray: options.dashArray || null,
-            }).addTo(map);
-
-            const arrow = createArrowMarker(startLat, startLng, endLat, endLng, options.color).addTo(map);
-            return { line, arrow };
-        }
-
-        async function fetchPlaceSuggestions(query) {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(query)}`, {
-                headers: {
-                    'Accept': 'application/json',
-                },
-            });
-            return response.json();
-        }
-
-        function hidePlaceSuggestions() {
-            if (!placeSuggestionsPanel || !placeSuggestionsList) {
-                return;
-            }
-            placeSuggestionsPanel.style.display = 'none';
-            placeSuggestionsList.innerHTML = '';
-        }
-
-        function applyPlaceSelection(selection) {
-            if (placeNameInput) {
-                const nameParts = (selection.display_name || '').split(',');
-                placeNameInput.value = (nameParts[0] || selection.name || 'Selected place').trim();
-            }
-            if (placeAddressInput) {
-                placeAddressInput.value = selection.display_name || '';
-            }
-            if (placeLatitudeInput) {
-                placeLatitudeInput.value = Number(selection.lat).toFixed(6);
-            }
-            if (placeLongitudeInput) {
-                placeLongitudeInput.value = Number(selection.lon).toFixed(6);
-            }
-
-            const selectedLatLng = [Number(selection.lat), Number(selection.lon)];
-            if (pickedLocationMarker) {
-                pickedLocationMarker.setLatLng(selectedLatLng);
-            } else {
-                pickedLocationMarker = L.circleMarker(selectedLatLng, {
-                    radius: 6,
-                    color: '#f4a259',
-                    fillColor: '#f4a259',
-                    fillOpacity: 0.95,
-                }).addTo(map);
-            }
-            map.setView(selectedLatLng, Math.max(map.getZoom(), 12));
-            routeStatus.textContent = 'Place details copied from recommendations.';
-        }
-
-        function renderPlaceSuggestions(results) {
-            if (!placeSuggestionsPanel || !placeSuggestionsList) {
-                return;
-            }
-
-            placeSuggestionsList.innerHTML = '';
-            if (!results.length) {
-                hidePlaceSuggestions();
-                return;
-            }
-
-            results.forEach((result) => {
-                const item = document.createElement('li');
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'button secondary';
-                button.style.width = '100%';
-                button.style.textAlign = 'left';
-                button.style.marginBottom = '0.35rem';
-                button.textContent = result.display_name;
-                button.addEventListener('click', () => {
-                    applyPlaceSelection(result);
-                    hidePlaceSuggestions();
-                });
-                item.appendChild(button);
-                placeSuggestionsList.appendChild(item);
-            });
-
-            placeSuggestionsPanel.style.display = 'block';
-        }
-
-        if (placeSearchInput && placeSuggestionsPanel && placeSuggestionsList) {
-            placeSearchInput.addEventListener('input', () => {
-                const query = placeSearchInput.value.trim();
-                placeLastQuery = query;
-
-                if (placeSearchDebounceTimer) {
-                    clearTimeout(placeSearchDebounceTimer);
-                }
-
-                if (query.length < 2) {
-                    hidePlaceSuggestions();
-                    return;
-                }
-
-                placeSearchDebounceTimer = setTimeout(async () => {
-                    try {
-                        const results = await fetchPlaceSuggestions(query);
-                        if (placeLastQuery !== query) {
-                            return;
-                        }
-                        placeSuggestionResults = results;
-                        renderPlaceSuggestions(results);
-                    } catch (error) {
-                        hidePlaceSuggestions();
-                    }
-                }, 300);
-            });
-
-            placeSearchInput.addEventListener('blur', () => {
-                setTimeout(() => {
-                    hidePlaceSuggestions();
-                }, 120);
-            });
-
-            placeSearchInput.addEventListener('focus', () => {
-                if (placeSuggestionResults.length) {
-                    renderPlaceSuggestions(placeSuggestionResults);
-                }
-            });
-        }
-
-        function clearPreviewRoute() {
-            previewRouteLayers.forEach((layer) => {
-                map.removeLayer(layer.line);
-                map.removeLayer(layer.arrow);
-            });
-            previewRouteLayers = [];
-        }
-
-        map.on('click', (event) => {
-            if (!placeLatitudeInput || !placeLongitudeInput) {
-                return;
-            }
-
-            const { lat, lng } = event.latlng;
-            placeLatitudeInput.value = Number(lat).toFixed(6);
-            placeLongitudeInput.value = Number(lng).toFixed(6);
-
-            if (pickedLocationMarker) {
-                pickedLocationMarker.setLatLng(event.latlng);
-            } else {
-                pickedLocationMarker = L.circleMarker(event.latlng, {
-                    radius: 6,
-                    color: '#f4a259',
-                    fillColor: '#f4a259',
-                    fillOpacity: 0.95,
-                }).addTo(map);
-            }
-
-            routeStatus.textContent = 'Picked map point copied to the place form coordinates.';
-        });
-
-        const savedRoutes = JSON.parse(document.getElementById('trip-routes-data').textContent || '[]');
-        savedRoutes.forEach((route) => {
-            const routeLayers = drawRoute(route.start_lat, route.start_lng, route.end_lat, route.end_lng, {
-                color: route.color || '#2ca57e',
-                weight: 4,
-                opacity: 0.9,
-            });
-            routeLayers.line.bindPopup(`<strong>${route.name}</strong><br>${route.start_name} → ${route.end_name}`);
-            savedRouteLayers.push(routeLayers);
-        });
-
-        previewRouteButton?.addEventListener('click', () => {
-            const startPoint = lookup.get(routeStart.value);
-            const endPoint = lookup.get(routeEnd.value);
-
-            if (!startPoint || !endPoint) {
-                routeStatus.textContent = 'Pick two saved points with coordinates first.';
-                return;
-            }
-
-            clearPreviewRoute();
-            const previewLayers = drawRoute(startPoint.lat, startPoint.lng, endPoint.lat, endPoint.lng, {
-                color: '#f2be63',
-                weight: 4,
-                opacity: 0.95,
-                dashArray: '10 6',
-            });
-            previewRouteLayers.push(previewLayers);
-
-            map.fitBounds(previewLayers.line.getBounds(), { padding: [30, 30] });
-            routeStatus.textContent = `Preview route from ${startPoint.name} to ${endPoint.name}. Click Create Route to save it.`;
-        });
-
-        clearRouteButton?.addEventListener('click', () => {
-            clearPreviewRoute();
-            routeStatus.textContent = 'Route preview cleared.';
-        });
-    })();
-</script>
+<script src="{% static 'trips/js/trip_detail.js' %}"></script>
 {% endblock %}
+
+
+

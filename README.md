@@ -1,4 +1,4 @@
-# Travel Planner (Django)
+# Trip Canvas (Django)
 
 A basic travel-planner web app built with Django where users can:
 - Sign up, log in, and log out
@@ -15,6 +15,10 @@ A basic travel-planner web app built with Django where users can:
 - See a 5-day forecast with rain chance and temperature windows
 - Receive weather warning banners (rain, storm, heat, cold)
 - Get smart day-shifting recommendations for outdoor sightseeing
+- Generate AI-assisted day-wise itineraries using destination, days, budget, travel style, weather, preferred times, and saved places
+- View AI output with morning/afternoon/evening suggestions, rough budget split, and packing guidance
+- Save AI output back into the Itinerary & Budget tab as one itinerary item per generated day
+- Uses a live OpenAI model when `OPENAI_API_KEY` is set, and falls back to the built-in planner when it is not available
 
 ## Tech Stack
 - Python 3.11
@@ -82,6 +86,7 @@ Open in browser:
 - Trip list: `/`
 - Create trip: `/trips/new/`
 - Trip detail: `/trips/<trip_id>/`
+- AI help: `/trips/<trip_id>/ai-help/`
 - Toggle checklist item done: `/checklist/<item_id>/toggle/`
 
 ## Map Support
@@ -94,6 +99,26 @@ Open in browser:
 - Weather warnings are shown when high-risk conditions are detected.
 - The planner suggests a better sightseeing day based on forecast quality.
 - If coordinates are missing or the weather API is unavailable, the UI falls back gracefully.
+
+## Live AI Setup
+- Recommended: use a local `.env` file to avoid terminal environment issues.
+- This repo includes `.env.example` and a local `.env` scaffold.
+- Put your key in `.env` as `OPENAI_API_KEY=your_real_key`.
+- Optional: set `OPENAI_MODEL` to change the model name. The app defaults to `gpt-4o-mini`.
+- Optional: set `OPENAI_API_URL` if you need a custom-compatible endpoint.
+- Optional: set `OPENAI_TIMEOUT_SECONDS` (recommended 90-180 for local models like Ollama/DeepSeek R1).
+- Optional: set `OPENAI_MAX_TOKENS` to constrain response size and reduce latency.
+- If the API key is missing or the model call fails, the app automatically uses the rule-based fallback planner.
+
+Quick start:
+
+```powershell
+# 1) Edit .env and paste your key
+OPENAI_API_KEY=your_real_key_here
+
+# 2) Start server normally (the app auto-loads .env)
+python manage.py runserver
+```
 
 ## Admin
 Create a superuser:

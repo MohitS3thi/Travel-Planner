@@ -37,10 +37,10 @@
             <div>
                 <label for="id_itinerary-estimated_cost"><strong>Estimated Cost</strong></label>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 1.1rem;">₹</span>
+                    <span style="font-size: 1.1rem;">&#8377;</span>
                     {{ form.estimated_cost }}
                 </div>
-                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Allocate from your trip budget of ₹{{ trip.budget|floatformat:2 }}</p>
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Allocate from your trip budget of &#8377;{{ trip.budget|floatformat:2 }}</p>
             </div>
         </div>
         <div class="toolbar">
