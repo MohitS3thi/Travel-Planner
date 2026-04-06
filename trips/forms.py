@@ -6,6 +6,23 @@ from django.contrib.auth.models import User
 from .models import ChecklistItem, ItineraryItem, Place, Trip
 
 
+def _find_overlapping_itinerary_item(trip, target_date, start_time, end_time, exclude_item_id=None):
+    """Return first itinerary item that overlaps with the provided time window."""
+    queryset = ItineraryItem.objects.filter(
+        trip=trip,
+        date=target_date,
+        start_time__isnull=False,
+        end_time__isnull=False,
+        start_time__lt=end_time,
+        end_time__gt=start_time,
+    ).order_by('start_time', 'created_at')
+
+    if exclude_item_id:
+        queryset = queryset.exclude(id=exclude_item_id)
+
+    return queryset.first()
+
+
 class SignUpForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
@@ -57,13 +74,44 @@ class TripForm(forms.ModelForm):
 
 
 class ItineraryItemForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        self.trip = kwargs.pop('trip', None)
+        super().__init__(*args, **kwargs)
+
     class Meta:
         model = ItineraryItem
-        fields = ('date', 'title', 'notes', 'estimated_cost')
+        fields = ('date', 'start_time', 'end_time', 'title', 'notes', 'estimated_cost')
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
+            'end_time': forms.TimeInput(attrs={'type': 'time'}),
             'notes': forms.Textarea(attrs={'rows': 2}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        target_date = cleaned_data.get('date')
+        start_time = cleaned_data.get('start_time')
+        end_time = cleaned_data.get('end_time')
+
+        if start_time and end_time and end_time <= start_time:
+            raise forms.ValidationError('End time must be later than start time.')
+
+        if self.trip and target_date and start_time and end_time:
+            overlap_item = _find_overlapping_itinerary_item(
+                trip=self.trip,
+                target_date=target_date,
+                start_time=start_time,
+                end_time=end_time,
+                exclude_item_id=self.instance.id if self.instance and self.instance.pk else None,
+            )
+            if overlap_item:
+                raise forms.ValidationError(
+                    f'This time is already being used for "{overlap_item.title}" '
+                    f'({overlap_item.start_time.strftime("%H:%M")} - {overlap_item.end_time.strftime("%H:%M")}).'
+                )
+
+        return cleaned_data
 
 
 class ChecklistItemForm(forms.ModelForm):
@@ -75,6 +123,15 @@ class ChecklistItemForm(forms.ModelForm):
 class PlaceForm(forms.ModelForm):
     add_to_itinerary = forms.BooleanField(required=False)
     itinerary_title = forms.CharField(max_length=150, required=False)
+    itinerary_start_time = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'type': 'time'}))
+    itinerary_end_time = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'type': 'time'}))
+    itinerary_estimated_cost = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        initial=0,
+    )
 
     def __init__(self, *args, **kwargs):
         self.trip = kwargs.pop('trip', None)
@@ -110,6 +167,9 @@ class PlaceForm(forms.ModelForm):
             'is_one_day_visit',
             'add_to_itinerary',
             'itinerary_title',
+            'itinerary_start_time',
+            'itinerary_end_time',
+            'itinerary_estimated_cost',
             'notes',
         )
         widgets = {
@@ -148,6 +208,8 @@ class PlaceForm(forms.ModelForm):
 
         add_to_itinerary = cleaned_data.get('add_to_itinerary')
         itinerary_title = (cleaned_data.get('itinerary_title') or '').strip()
+        itinerary_start_time = cleaned_data.get('itinerary_start_time')
+        itinerary_end_time = cleaned_data.get('itinerary_end_time')
         
         # Auto-enable itinerary addition if visit_date exists
         if visit_date and not add_to_itinerary:
@@ -160,6 +222,27 @@ class PlaceForm(forms.ModelForm):
         if add_to_itinerary and not itinerary_title:
             place_name = (cleaned_data.get('name') or '').strip()
             cleaned_data['itinerary_title'] = f'Visit {place_name}' if place_name else 'Visit saved place'
+
+        if add_to_itinerary and itinerary_start_time and itinerary_end_time and itinerary_end_time <= itinerary_start_time:
+            raise forms.ValidationError('Itinerary end time must be later than itinerary start time.')
+
+        if self.trip and add_to_itinerary and visit_date and itinerary_start_time and itinerary_end_time:
+            overlap_item = _find_overlapping_itinerary_item(
+                trip=self.trip,
+                target_date=visit_date,
+                start_time=itinerary_start_time,
+                end_time=itinerary_end_time,
+            )
+            if overlap_item:
+                place_name = (cleaned_data.get('name') or 'this location').strip()
+                raise forms.ValidationError(
+                    f'This time is already being used for "{overlap_item.title}" activity on {place_name} '
+                    f'({overlap_item.start_time.strftime("%H:%M")} - {overlap_item.end_time.strftime("%H:%M")}).'
+                )
+
+        # Keep budget optional but normalized when adding to itinerary.
+        if add_to_itinerary and cleaned_data.get('itinerary_estimated_cost') is None:
+            cleaned_data['itinerary_estimated_cost'] = 0
 
         return cleaned_data
 

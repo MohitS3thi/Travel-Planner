@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block nav_secondary %}{% endblock %}
+
+{% block content %}
+<div class="hero-banner">
+    <h1 style="margin-bottom: 0.2rem;">Choose a Trip for {{ feature_label }}</h1>
+    <p class="muted">Search "{{ feature_query }}" matched a feature. Select a planned trip to continue.</p>
+</div>
+
+<div class="card">
+    {% if trip_choices %}
+        <p class="muted" style="margin-top: 0;">{{ feature_action_text }} for one of your planned trips:</p>
+        <div class="grid">
+            {% for choice in trip_choices %}
+                <div class="card">
+                    <h3>{{ choice.trip.destination }}</h3>
+                    <p class="muted">{{ choice.trip.start_date }} to {{ choice.trip.end_date }}</p>
+                    <div class="chip-row">
+                        <span class="chip">Budget: &#8377;{{ choice.trip.budget }}</span>
+                        <span class="tag neutral">{{ choice.trip.get_status_display }}</span>
+                    </div>
+                    <a class="button" href="{{ choice.feature_url }}">{{ feature_action_text }}</a>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="toolbar" style="margin-top: 1rem;">
+            <a class="button" href="{% url 'trip_create' %}">Create New Trip</a>
+            <a class="button secondary" href="{% url 'trip_list' %}">Back to Dashboard</a>
+        </div>
+    {% else %}
+        {% if has_any_trips %}
+            <p style="margin-top: 0;"><strong>No planned trips available.</strong></p>
+            <p class="muted">Only planned trips can be used for feature search routing. Create a new trip to continue.</p>
+        {% else %}
+            <p style="margin-top: 0;"><strong>No trips found yet.</strong></p>
+            <p class="muted">Create your first trip to use {{ feature_label }}.</p>
+        {% endif %}
+
+        <div class="toolbar" style="margin-top: 1rem;">
+            <a class="button" href="{% url 'trip_create' %}">Create New Trip</a>
+            <a class="button secondary" href="{% url 'trip_list' %}">Back to Dashboard</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

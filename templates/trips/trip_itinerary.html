@@ -86,6 +86,13 @@
                         <div class="item-date">{{ item.date }}</div>
                         <div class="item-details">
                             <h3>{{ item.title }}</h3>
+                            {% if item.start_time or item.end_time %}
+                                <p class="muted" style="margin-bottom: 0.25rem;">
+                                    {% if item.start_time %}{{ item.start_time|time:'H:i' }}{% else %}--:--{% endif %}
+                                    to
+                                    {% if item.end_time %}{{ item.end_time|time:'H:i' }}{% else %}--:--{% endif %}
+                                </p>
+                            {% endif %}
                             {% if item.notes %}
                                 <p>{{ item.notes }}</p>
                             {% endif %}
@@ -170,6 +177,11 @@
     <p class="muted">Tip: click on the map to auto-fill latitude and longitude.</p>
     <form method="post">
         {% csrf_token %}
+        {% if place_form.errors %}
+            <div class="errorlist" style="margin-bottom: 0.7rem;">
+                Please correct the errors below.
+            </div>
+        {% endif %}
         {% if place_form.non_field_errors %}
             <div class="errorlist">{{ place_form.non_field_errors }}</div>
         {% endif %}
@@ -186,34 +198,42 @@
                 <div>
                     <label for="id_place-name"><strong>Name</strong></label>
                     {{ place_form.name }}
+                    {% if place_form.name.errors %}<div class="errorlist">{{ place_form.name.errors }}</div>{% endif %}
                 </div>
                 <div>
                     <label for="id_place-place_type"><strong>Type</strong></label>
                     {{ place_form.place_type }}
+                    {% if place_form.place_type.errors %}<div class="errorlist">{{ place_form.place_type.errors }}</div>{% endif %}
                 </div>
             </div>
             <div>
                 <label for="id_place-address"><strong>Address</strong></label>
                 {{ place_form.address }}
+                {% if place_form.address.errors %}<div class="errorlist">{{ place_form.address.errors }}</div>{% endif %}
             </div>
             <div class="field-grid">
                 <div>
                     <label for="id_place-latitude"><strong>Latitude</strong></label>
                     {{ place_form.latitude }}
+                    {% if place_form.latitude.errors %}<div class="errorlist">{{ place_form.latitude.errors }}</div>{% endif %}
                 </div>
                 <div>
                     <label for="id_place-longitude"><strong>Longitude</strong></label>
                     {{ place_form.longitude }}
+                    {% if place_form.longitude.errors %}<div class="errorlist">{{ place_form.longitude.errors }}</div>{% endif %}
                 </div>
             </div>
+            <p class="muted" style="margin: -0.25rem 0 0; font-size: 0.85rem;">Latitude and longitude are required. Use map click or place search to fill them quickly.</p>
             <div class="field-grid">
                 <div>
                     <label for="id_place-visit_date"><strong>Visit Date</strong></label>
                     {{ place_form.visit_date }}
+                    {% if place_form.visit_date.errors %}<div class="errorlist">{{ place_form.visit_date.errors }}</div>{% endif %}
                 </div>
                 <div>
                     <label for="id_place-return_date"><strong>Return Date</strong></label>
                     {{ place_form.return_date }}
+                    {% if place_form.return_date.errors %}<div class="errorlist">{{ place_form.return_date.errors }}</div>{% endif %}
                 </div>
             </div>
             <div>
@@ -233,11 +253,31 @@
             <div id="itinerary-title-row" class="collapsible-row" aria-hidden="true">
                 <label for="id_place-itinerary_title"><strong>Itinerary title (optional)</strong></label>
                 {{ place_form.itinerary_title }}
+                {% if place_form.itinerary_title.errors %}<div class="errorlist">{{ place_form.itinerary_title.errors }}</div>{% endif %}
                 <p class="muted" style="margin: 0.25rem 0 0;">If blank, a title like "Visit Place Name" is used.</p>
+
+                <div class="field-grid" style="margin-top: 0.7rem;">
+                    <div>
+                        <label for="id_place-itinerary_start_time"><strong>Start Time (optional)</strong></label>
+                        {{ place_form.itinerary_start_time }}
+                        {% if place_form.itinerary_start_time.errors %}<div class="errorlist">{{ place_form.itinerary_start_time.errors }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label for="id_place-itinerary_end_time"><strong>End Time (optional)</strong></label>
+                        {{ place_form.itinerary_end_time }}
+                        {% if place_form.itinerary_end_time.errors %}<div class="errorlist">{{ place_form.itinerary_end_time.errors }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <label for="id_place-itinerary_estimated_cost" style="margin-top: 0.7rem;"><strong>Estimated Cost (optional)</strong></label>
+                {{ place_form.itinerary_estimated_cost }}
+                {% if place_form.itinerary_estimated_cost.errors %}<div class="errorlist">{{ place_form.itinerary_estimated_cost.errors }}</div>{% endif %}
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Used to allocate budget automatically when this place is added to itinerary.</p>
             </div>
             <div>
                 <label for="id_place-notes"><strong>Notes</strong></label>
                 {{ place_form.notes }}
+                {% if place_form.notes.errors %}<div class="errorlist">{{ place_form.notes.errors }}</div>{% endif %}
             </div>
         </div>
         <button type="submit" name="add_place">Save Place</button>

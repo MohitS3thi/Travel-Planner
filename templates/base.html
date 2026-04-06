@@ -19,7 +19,15 @@
             {% if user.is_authenticated %}
                 <div class="ribbon-group search">
                     <form class="app-search" action="{% url 'trip_list' %}" method="get">
-                        <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Search trips, interests, places, itinerary..." />
+                        <input type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Search trips, interests, places, itinerary, weather, AI help..." list="app-search-suggestions" />
+                        <datalist id="app-search-suggestions">
+                            <option value="weather">Weather forecast</option>
+                            <option value="itinerary">Itinerary planning</option>
+                            <option value="map">Map and saved places</option>
+                            <option value="route">Route planner</option>
+                            <option value="checklist">Checklist prep</option>
+                            <option value="ai help">AI trip assistant</option>
+                        </datalist>
                         <button type="submit">Search</button>
                     </form>
                 </div>

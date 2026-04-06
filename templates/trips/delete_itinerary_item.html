@@ -18,6 +18,13 @@
 
     <div class="card" style="padding: 1rem; background: #f9f9f9; margin: 1.2rem 0;">
         <p><strong>{{ item.date }}: {{ item.title }}</strong></p>
+        {% if item.start_time or item.end_time %}
+            <p class="muted" style="margin: 0.2rem 0 0;">
+                {% if item.start_time %}{{ item.start_time|time:'H:i' }}{% else %}--:--{% endif %}
+                to
+                {% if item.end_time %}{{ item.end_time|time:'H:i' }}{% else %}--:--{% endif %}
+            </p>
+        {% endif %}
         {% if item.notes %}<p class="muted">{{ item.notes }}</p>{% endif %}
         <p>Estimated cost: <strong>&#8377;{{ item.estimated_cost|floatformat:2 }}</strong></p>
     </div>

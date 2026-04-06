@@ -15,6 +15,14 @@
     <p class="muted">Build plans, pin locations on the map, and keep your trip prep organized in one place.</p>
     {% if search_query %}
         <p class="muted" style="margin-top: 0.5rem;">Showing results for "{{ search_query }}". <a href="{% url 'trip_list' %}">Clear search</a></p>
+        {% if matched_feature_labels %}
+            <p class="muted" style="margin-top: -0.1rem;">
+                Feature matches:
+                {% for feature_label in matched_feature_labels %}
+                    <span class="chip" style="margin-right: 0.35rem;">{{ feature_label }}</span>
+                {% endfor %}
+            </p>
+        {% endif %}
     {% endif %}
 </div>
 
@@ -56,4 +64,11 @@
         </div>
     {% endif %}
 </div>
+
+<p class="muted" style="margin-top: 0.9rem; margin-bottom: 0; opacity: 0.72; font-size: 0.9rem;">
+    Recommended searches:
+    {% for item in recommended_searches %}
+        <a href="{% url 'trip_list' %}?q={{ item.query|urlencode }}" style="margin-right: 0.45rem; color: inherit; text-decoration-color: rgba(168, 188, 200, 0.45);">{{ item.label }}</a>
+    {% endfor %}
+</p>
 {% endblock %}

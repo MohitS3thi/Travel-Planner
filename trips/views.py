@@ -9,6 +9,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.db.models import Q
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
@@ -19,6 +20,81 @@ from .forms import AIItineraryHelpForm, ChecklistItemForm, ItineraryItemForm, Pl
 from .models import ChecklistItem, ItineraryItem, Place, Trip, TripRoute
 from .utils import generate_weather_aware_suggestions
 from .weather import get_weather_for_coordinates, get_weather_for_place_date
+
+
+RECOMMENDED_SEARCHES = [
+	{'query': 'weather', 'label': 'Weather forecast'},
+	{'query': 'itinerary', 'label': 'Itinerary planning'},
+	{'query': 'map', 'label': 'Map and saved places'},
+	{'query': 'route', 'label': 'Route planner'},
+	{'query': 'checklist', 'label': 'Checklist prep'},
+	{'query': 'ai help', 'label': 'AI trip assistant'},
+]
+
+FEATURE_KEYWORDS = {
+	'Weather': ['weather', 'forecast', 'rain', 'temperature', 'climate'],
+	'Itinerary & Budget': ['itinerary', 'budget', 'activity', 'activities', 'plan'],
+	'Map & Places': ['map', 'place', 'places', 'location', 'locations'],
+	'Route Planner': ['route', 'routes', 'path', 'directions'],
+	'Checklist': ['checklist', 'packing', 'prep', 'to-do', 'todo'],
+	'AI Help': ['ai', 'assistant', 'ai help'],
+}
+
+
+def _matched_feature_labels(search_query):
+	if not search_query:
+		return []
+
+	query_text = search_query.lower()
+	matched = []
+	for feature_label, keywords in FEATURE_KEYWORDS.items():
+		if any(keyword in query_text for keyword in keywords):
+			matched.append(feature_label)
+	return matched
+
+
+def _feature_intent_label(search_query):
+	"""Return a feature label only when query is an explicit feature intent."""
+	if not search_query:
+		return None
+
+	query_text = search_query.strip().lower()
+	for feature_label, keywords in FEATURE_KEYWORDS.items():
+		if any(query_text == keyword for keyword in keywords):
+			return feature_label
+	return None
+
+
+def _feature_redirect_url(feature_label, trip_id):
+	if feature_label == 'Weather':
+		return reverse('trip_weather', kwargs={'trip_id': trip_id})
+	if feature_label == 'Itinerary & Budget':
+		return reverse('trip_itinerary', kwargs={'trip_id': trip_id})
+	if feature_label == 'Map & Places':
+		return f"{reverse('trip_itinerary', kwargs={'trip_id': trip_id})}#itinerary-places-section"
+	if feature_label == 'Route Planner':
+		return f"{reverse('trip_detail', kwargs={'trip_id': trip_id})}#trip-route-section"
+	if feature_label == 'Checklist':
+		return f"{reverse('trip_detail', kwargs={'trip_id': trip_id})}#trip-checklist-section"
+	if feature_label == 'AI Help':
+		return reverse('ai_help', kwargs={'trip_id': trip_id})
+	return None
+
+
+def _feature_action_text(feature_label):
+	if feature_label == 'Weather':
+		return 'Open weather insights'
+	if feature_label == 'Itinerary & Budget':
+		return 'Open itinerary and budget'
+	if feature_label == 'Map & Places':
+		return 'Open map and places'
+	if feature_label == 'Route Planner':
+		return 'Open route planner'
+	if feature_label == 'Checklist':
+		return 'Open checklist'
+	if feature_label == 'AI Help':
+		return 'Open AI Help'
+	return 'Open feature'
 
 
 @method_decorator(never_cache, name='dispatch')
@@ -176,17 +252,60 @@ def signup_view(request):
 def trip_list(request):
 	trips = Trip.objects.filter(owner=request.user)
 	search_query = (request.GET.get('q') or '').strip()
+	matched_feature_labels = _matched_feature_labels(search_query)
+	feature_intent_label = _feature_intent_label(search_query)
 	selected_status = request.GET.get('status', 'all').strip().lower()
 	allowed_statuses = {choice[0] for choice in Trip.STATUS_CHOICES}
 
+	# For explicit feature-intent searches (e.g. "weather"), prompt for planned trip selection.
+	if feature_intent_label:
+		planned_trips = trips.filter(status=Trip.STATUS_PLANNED).order_by('-start_date', '-id')
+
+		if not planned_trips.exists():
+			return render(
+				request,
+				'trips/feature_trip_picker.html',
+				{
+					'feature_label': feature_intent_label,
+					'feature_query': search_query,
+					'feature_action_text': _feature_action_text(feature_intent_label),
+					'trip_choices': [],
+					'has_any_trips': trips.exists(),
+				},
+			)
+
+		trip_choices = []
+		for trip in planned_trips:
+			feature_url = _feature_redirect_url(feature_intent_label, trip.id)
+			if feature_url:
+				trip_choices.append({'trip': trip, 'feature_url': feature_url})
+
+		return render(
+			request,
+			'trips/feature_trip_picker.html',
+			{
+				'feature_label': feature_intent_label,
+				'feature_query': search_query,
+				'feature_action_text': _feature_action_text(feature_intent_label),
+				'trip_choices': trip_choices,
+				'has_any_trips': trips.exists(),
+			},
+		)
+
 	if search_query:
-		trips = trips.filter(
+		text_matches = trips.filter(
 			Q(destination__icontains=search_query)
 			| Q(interests__icontains=search_query)
 			| Q(places__name__icontains=search_query)
 			| Q(itinerary_items__title__icontains=search_query)
 			| Q(itinerary_items__notes__icontains=search_query)
 		).distinct()
+
+		# Feature search terms (e.g. "weather", "map", "ai help") should surface trips too.
+		if matched_feature_labels:
+			trips = trips.distinct()
+		else:
+			trips = text_matches
 
 	if selected_status in allowed_statuses:
 		trips = trips.filter(status=selected_status)
@@ -200,6 +319,8 @@ def trip_list(request):
 			'trips': trips,
 			'selected_status': selected_status,
 			'search_query': search_query,
+			'matched_feature_labels': matched_feature_labels,
+			'recommended_searches': RECOMMENDED_SEARCHES,
 		},
 	)
 
@@ -238,7 +359,7 @@ def trip_edit(request, trip_id):
 @login_required
 def trip_detail(request, trip_id):
 	trip = get_object_or_404(Trip, id=trip_id, owner=request.user)
-	itinerary_form = ItineraryItemForm(request.POST or None, prefix='itinerary')
+	itinerary_form = ItineraryItemForm(request.POST or None, prefix='itinerary', trip=trip)
 	checklist_form = ChecklistItemForm(request.POST or None, prefix='checklist')
 	point_lookup = _build_trip_point_lookup(trip)
 	point_choices = [(key, point['name']) for key, point in point_lookup.items()]
@@ -599,22 +720,29 @@ def place_weather(request, trip_id, place_id):
 @login_required
 def trip_itinerary(request, trip_id):
 	trip = get_object_or_404(Trip, id=trip_id, owner=request.user)
-	itinerary_items = trip.itinerary_items.all().order_by('date', 'created_at')
+	itinerary_items = trip.itinerary_items.all().order_by('date', 'start_time', 'created_at')
 	place_form = PlaceForm(request.POST or None, prefix='place', trip=trip)
 	
-	if request.method == 'POST' and 'add_place' in request.POST and place_form.is_valid():
-		place = place_form.save(commit=False)
-		place.trip = trip
-		place.save()
+	if request.method == 'POST' and 'add_place' in request.POST:
+		if place_form.is_valid():
+			place = place_form.save(commit=False)
+			place.trip = trip
+			place.save()
 
-		if place_form.cleaned_data.get('add_to_itinerary'):
-			ItineraryItem.objects.create(
-				trip=trip,
-				date=place_form.cleaned_data['visit_date'],
-				title=place_form.cleaned_data.get('itinerary_title') or f'Visit {place.name}',
-				notes=place.notes,
-			)
-		return redirect('trip_itinerary', trip_id=trip.id)
+			if place_form.cleaned_data.get('add_to_itinerary'):
+				ItineraryItem.objects.create(
+					trip=trip,
+					date=place_form.cleaned_data['visit_date'],
+					start_time=place_form.cleaned_data.get('itinerary_start_time'),
+					end_time=place_form.cleaned_data.get('itinerary_end_time'),
+					title=place_form.cleaned_data.get('itinerary_title') or f'Visit {place.name}',
+					notes=place.notes,
+					estimated_cost=place_form.cleaned_data.get('itinerary_estimated_cost') or 0,
+				)
+			messages.success(request, 'Place saved successfully.')
+			return redirect('trip_itinerary', trip_id=trip.id)
+
+		messages.error(request, 'Could not save place. Please fix the highlighted fields and try again.')
 	
 	# Calculate budget summary
 	total_spent = sum(item.estimated_cost for item in itinerary_items)
@@ -696,8 +824,11 @@ def edit_place(request, trip_id, place_id):
 					ItineraryItem.objects.create(
 						trip=trip,
 						date=visit_date,
+						start_time=place_form.cleaned_data.get('itinerary_start_time'),
+						end_time=place_form.cleaned_data.get('itinerary_end_time'),
 						title=place_form.cleaned_data.get('itinerary_title') or f'Visit {place.name}',
 						notes=place.notes,
+						estimated_cost=place_form.cleaned_data.get('itinerary_estimated_cost') or 0,
 					)
 			return redirect('trip_itinerary', trip_id=trip.id)
 	else:
@@ -741,12 +872,12 @@ def edit_itinerary_item(request, trip_id, item_id):
 	item = get_object_or_404(ItineraryItem, id=item_id, trip=trip)
 	
 	if request.method == 'POST':
-		form = ItineraryItemForm(request.POST, instance=item, prefix='itinerary')
+		form = ItineraryItemForm(request.POST, instance=item, prefix='itinerary', trip=trip)
 		if form.is_valid():
 			form.save()
 			return redirect('trip_itinerary', trip_id=trip.id)
 	else:
-		form = ItineraryItemForm(instance=item, prefix='itinerary')
+		form = ItineraryItemForm(instance=item, prefix='itinerary', trip=trip)
 	
 	return render(
 		request,

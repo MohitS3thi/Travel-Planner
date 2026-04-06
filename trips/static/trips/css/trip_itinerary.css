@@ -148,16 +148,19 @@
     }
 
     .collapsible-row {
+        display: none;
         max-height: 0;
         opacity: 0;
         overflow: hidden;
         transform: translateY(-4px);
-        transition: max-height 180ms ease, opacity 180ms ease, transform 180ms ease;
+        transition: opacity 180ms ease, transform 180ms ease;
     }
 
     .collapsible-row.is-visible {
-        max-height: 140px;
+        display: block;
+        max-height: none;
         opacity: 1;
+        overflow: visible;
         transform: translateY(0);
     }
 

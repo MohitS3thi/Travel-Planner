@@ -13,6 +13,9 @@
         const addToItineraryCheckbox = document.getElementById('id_place-add_to_itinerary');
         const itineraryTitleRow = document.getElementById('itinerary-title-row');
         const itineraryTitleInput = document.getElementById('id_place-itinerary_title');
+        const itineraryStartTimeInput = document.getElementById('id_place-itinerary_start_time');
+        const itineraryEndTimeInput = document.getElementById('id_place-itinerary_end_time');
+        const itineraryEstimatedCostInput = document.getElementById('id_place-itinerary_estimated_cost');
 
         // Initialize map if element exists
         if (mapElement) {
@@ -91,8 +94,8 @@
                             li.addEventListener('click', function () {
                                 placeNameInput.value = place.name || place.display_name.split(',')[0];
                                 placeAddressInput.value = place.display_name;
-                                placeLatitudeInput.value = place.lat;
-                                placeLongitudeInput.value = place.lon;
+                                placeLatitudeInput.value = Number(place.lat).toFixed(6);
+                                placeLongitudeInput.value = Number(place.lon).toFixed(6);
                                 placeSearchInput.value = '';
                                 placeSuggestionsPanel.style.display = 'none';
                             });
@@ -141,12 +144,33 @@
                 if (itineraryTitleInput) {
                     itineraryTitleInput.disabled = false;
                 }
+                if (itineraryStartTimeInput) {
+                    itineraryStartTimeInput.disabled = false;
+                }
+                if (itineraryEndTimeInput) {
+                    itineraryEndTimeInput.disabled = false;
+                }
+                if (itineraryEstimatedCostInput) {
+                    itineraryEstimatedCostInput.disabled = false;
+                }
             } else {
                 itineraryTitleRow.classList.remove('is-visible');
                 itineraryTitleRow.setAttribute('aria-hidden', 'true');
                 if (itineraryTitleInput) {
                     itineraryTitleInput.disabled = true;
                     itineraryTitleInput.value = '';
+                }
+                if (itineraryStartTimeInput) {
+                    itineraryStartTimeInput.disabled = true;
+                    itineraryStartTimeInput.value = '';
+                }
+                if (itineraryEndTimeInput) {
+                    itineraryEndTimeInput.disabled = true;
+                    itineraryEndTimeInput.value = '';
+                }
+                if (itineraryEstimatedCostInput) {
+                    itineraryEstimatedCostInput.disabled = true;
+                    itineraryEstimatedCostInput.value = '';
                 }
             }
         }

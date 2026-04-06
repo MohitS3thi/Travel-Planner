@@ -6,6 +6,41 @@
 </div>
 {% endblock %}
 
+{% block extra_scripts %}
+<script>
+    (function () {
+        const oneDayCheckbox = document.getElementById('id_place-is_one_day_visit');
+        const visitDateInput = document.getElementById('id_place-visit_date');
+        const returnDateInput = document.getElementById('id_place-return_date');
+
+        function syncOneDayVisitState() {
+            if (!oneDayCheckbox || !returnDateInput) {
+                return;
+            }
+
+            if (oneDayCheckbox.checked) {
+                if (visitDateInput && visitDateInput.value) {
+                    returnDateInput.value = visitDateInput.value;
+                }
+                returnDateInput.disabled = true;
+            } else {
+                returnDateInput.disabled = false;
+            }
+        }
+
+        if (oneDayCheckbox) {
+            oneDayCheckbox.addEventListener('change', syncOneDayVisitState);
+        }
+
+        if (visitDateInput) {
+            visitDateInput.addEventListener('change', syncOneDayVisitState);
+        }
+
+        syncOneDayVisitState();
+    })();
+</script>
+{% endblock %}
+
 {% block content %}
 
 <div class="card section-panel">
@@ -67,6 +102,25 @@
                     <strong>Add this place to itinerary</strong>
                 </label>
                 <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Auto-enabled when a visit date is set</p>
+            </div>
+            <div>
+                <label for="id_place-itinerary_title"><strong>Itinerary title (optional)</strong></label>
+                {{ place_form.itinerary_title }}
+            </div>
+            <div class="field-grid">
+                <div>
+                    <label for="id_place-itinerary_start_time"><strong>Start Time (optional)</strong></label>
+                    {{ place_form.itinerary_start_time }}
+                </div>
+                <div>
+                    <label for="id_place-itinerary_end_time"><strong>End Time (optional)</strong></label>
+                    {{ place_form.itinerary_end_time }}
+                </div>
+            </div>
+            <div>
+                <label for="id_place-itinerary_estimated_cost"><strong>Estimated Cost (optional)</strong></label>
+                {{ place_form.itinerary_estimated_cost }}
+                <p class="muted" style="margin: 0.25rem 0 0; font-size: 0.85rem;">Used as budget allocation when this place is added to itinerary.</p>
             </div>
             <div>
                 <label for="id_place-notes"><strong>Notes</strong></label>
