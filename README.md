@@ -77,6 +77,29 @@ python manage.py runserver
 Open in browser:
 - http://127.0.0.1:8000/
 
+## Screenshots
+
+### App Preview 1
+![Trip Canvas app preview 1](Screenshots/Screenshot%202026-04-06%20213224.png)
+
+### App Preview 2
+![Trip Canvas app preview 2](Screenshots/Screenshot%202026-04-06%20213241.png)
+
+### App Preview 3
+![Trip Canvas app preview 3](Screenshots/Screenshot%202026-04-06%20213250.png)
+
+### App Preview 4
+![Trip Canvas app preview 4](Screenshots/Screenshot%202026-04-06%20213301.png)
+
+### App Preview 5
+![Trip Canvas app preview 5](Screenshots/Screenshot%202026-04-06%20213324.png)
+
+### App Preview 6
+![Trip Canvas app preview 6](Screenshots/Screenshot%202026-04-06%20213335.png)
+
+### App Preview 7
+![Trip Canvas app preview 7](Screenshots/Screenshot%202026-04-06%20213358.png)
+
 ## Authentication Routes
 - Signup: `/signup/`
 - Login: `/accounts/login/`
